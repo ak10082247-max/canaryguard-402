@@ -100,9 +100,13 @@ function checkEncodedInjections(value: string): string[] {
 
   // 2. URL percent-encoding inspection (e.g. %69%67%6e%6f%72%65)
   if (/%[0-9a-fA-F]{2}/.test(value)) {
+    let decoded = value;
     try {
-      const decoded = decodeURIComponent(value);
-      if (decoded !== value) {
+      // Bound nested decoding so repeatedly encoded commands cannot evade inspection.
+      for (let depth = 0; depth < 3; depth += 1) {
+        const next = decodeURIComponent(decoded);
+        if (next === decoded) break;
+        decoded = next;
         if (ROLE_DELIMITER.test(decoded) || ROLE_PREFIX.test(decoded)) threats.push('encoded_role_delimiter');
         if (INSTRUCTION_OVERRIDE.test(decoded)) threats.push('encoded_instruction_override');
         if (JAILBREAK_ROLEPLAY.test(decoded)) threats.push('encoded_jailbreak_roleplay');
