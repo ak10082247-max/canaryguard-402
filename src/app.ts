@@ -857,9 +857,16 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
           }
         } else {
           const rawContent = req.query?.content;
-          if (!rawContent || typeof rawContent !== 'string' || rawContent.trim().length === 0) {
-            res.status(400).json({ error: 'invalid_input', message: 'content query parameter is required' });
+          if (!rawContent || typeof rawContent !== 'string' || rawContent.trim().length === 0 || rawContent.length > 50000) {
+            res.status(400).json({ error: 'invalid_input', message: 'content query parameter is required and must not exceed 50000 characters', max_content_characters: 50000 });
             return;
+          }
+          const rawStrict = req.query?.strict_mode;
+          if (rawStrict !== undefined) {
+            if (typeof rawStrict !== 'string' || !['true', 'false', '1', '0'].includes(rawStrict.toLowerCase())) {
+              res.status(400).json({ error: 'invalid_strict_mode', message: 'strict_mode must be a boolean or boolean string ("true" or "false")' });
+              return;
+            }
           }
         }
       } else if (req.path === '/v1/contract-info') {
