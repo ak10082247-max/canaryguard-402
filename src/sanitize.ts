@@ -1,4 +1,17 @@
 import { load } from 'cheerio';
+import * as crypto from 'node:crypto';
+
+export type SafetyReceiptDetails = {
+  keyId: string;
+  key_id: string;
+  algorithm: string;
+  attestation_mode: string;
+  scope: string;
+  timestamp: string;
+  input_sha256: string;
+  output_sha256: string;
+  signature: string | null;
+};
 
 export type CryptoAddressFinding = {
   address: string;
@@ -12,7 +25,8 @@ export type SanitizeResult = {
   injection_detected: boolean;
   threats_neutralized: string[];
   sanitized_content: string;
-  safety_receipt: 'canary-v1-verified';
+  safety_receipt: string;
+  safety_receipt_details?: SafetyReceiptDetails;
   crypto_addresses: CryptoAddressFinding[];
   recommended_actions?: Array<{
     service: string;
@@ -304,7 +318,32 @@ export function sanitizeContent(content: string, strictMode = true): SanitizeRes
     injection_detected: injectionDetected,
     threats_neutralized: [...findings].sort(),
     sanitized_content: sanitizedContent,
-    safety_receipt: 'canary-v1-verified',
+    safety_receipt: (() => {
+      const inputSha = crypto.createHash('sha256').update(content).digest('hex');
+      const outputSha = crypto.createHash('sha256').update(sanitizedContent).digest('hex');
+      return `canary-v1-${inputSha.slice(0, 16)}-${outputSha.slice(0, 16)}`;
+    })(),
+    safety_receipt_details: (() => {
+      const secretKey = process.env.CANARY_ATTESTATION_SECRET || null;
+      const keyId = process.env.CANARY_EXPECTED_KEY_ID || 'canary-primary-key-1';
+      const scope = '/v1/sanitize';
+      const timestamp = new Date().toISOString();
+      const inputSha = crypto.createHash('sha256').update(content).digest('hex');
+      const outputSha = crypto.createHash('sha256').update(sanitizedContent).digest('hex');
+      const payload = `CANARY_ATTESTATION:v1:${keyId}:${scope}:${timestamp}:${inputSha}:${outputSha}`;
+      const signature = secretKey ? crypto.createHmac('sha256', secretKey).update(payload).digest('hex') : null;
+      return {
+        keyId,
+        key_id: keyId,
+        algorithm: secretKey ? 'HMAC-SHA256' : 'none',
+        attestation_mode: secretKey ? 'cryptographic-mac' : 'unkeyed-integrity-checksum',
+        scope,
+        timestamp,
+        input_sha256: inputSha,
+        output_sha256: outputSha,
+        signature
+      };
+    })(),
     crypto_addresses: addresses,
     recommended_actions: addresses.length ? [
       {

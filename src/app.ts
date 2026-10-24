@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -856,15 +857,23 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
             return;
           }
         } else {
-          const rawContent = req.query?.content;
+                    const rawContent = req.query?.content;
           if (!rawContent || typeof rawContent !== 'string' || rawContent.trim().length === 0 || rawContent.length > 50000) {
             res.status(400).json({ error: 'invalid_input', message: 'content query parameter is required and must not exceed 50000 characters', max_content_characters: 50000 });
             return;
           }
           const rawStrict = req.query?.strict_mode;
-          if (rawStrict !== undefined) {
-            if (typeof rawStrict !== 'string' || !['true', 'false', '1', '0'].includes(rawStrict.toLowerCase())) {
-              res.status(400).json({ error: 'invalid_strict_mode', message: 'strict_mode must be a boolean or boolean string ("true" or "false")' });
+          if (rawStrict !== undefined && rawStrict !== null) {
+            if (typeof rawStrict === 'boolean') {
+              // valid boolean
+            } else if (typeof rawStrict === 'string') {
+              const lower = rawStrict.trim().toLowerCase();
+              if (!['true', 'false', '1', '0'].includes(lower)) {
+                res.status(400).json({ error: 'invalid_strict_mode', message: 'strict_mode must be a boolean or boolean string ("true", "false", "1", "0")' });
+                return;
+              }
+            } else {
+              res.status(400).json({ error: 'invalid_strict_mode', message: 'strict_mode must be a boolean or boolean string ("true", "false", "1", "0")' });
               return;
             }
           }
@@ -953,12 +962,31 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
   });
 
   app.get('/v1/sanitize', (req, res) => {
-    const rawContent = req.query.content;
-    if (!rawContent || typeof rawContent !== 'string' || rawContent.trim().length === 0) {
-      res.status(400).json({ error: 'invalid_input', message: 'content query parameter is required' });
+    const rawContent = req.query?.content;
+    if (!rawContent || typeof rawContent !== 'string' || rawContent.trim().length === 0 || rawContent.length > 50000) {
+      res.status(400).json({ error: 'invalid_input', message: 'content query parameter is required and must not exceed 50000 characters', max_content_characters: 50000 });
       return;
     }
-    const strict = req.query.strict_mode !== 'false';
+    let strict = true;
+    const rawStrict = req.query?.strict_mode;
+    if (rawStrict !== undefined && rawStrict !== null) {
+      if (typeof rawStrict === 'boolean') {
+        strict = rawStrict;
+      } else if (typeof rawStrict === 'string') {
+        const lower = rawStrict.trim().toLowerCase();
+        if (lower === 'true' || lower === '1') {
+          strict = true;
+        } else if (lower === 'false' || lower === '0') {
+          strict = false;
+        } else {
+          res.status(400).json({ error: 'invalid_strict_mode', message: 'strict_mode must be a boolean or boolean string ("true", "false", "1", "0")' });
+          return;
+        }
+      } else {
+        res.status(400).json({ error: 'invalid_strict_mode', message: 'strict_mode must be a boolean or boolean string ("true", "false", "1", "0")' });
+        return;
+      }
+    }
     res.locals.sanitized = true;
     res.json({ ...sanitizeContent(rawContent, strict), agent_continuation: AGENT_CONTINUATION });
   });
