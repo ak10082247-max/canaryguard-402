@@ -821,6 +821,58 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
       }
 
       const txB64 = (parsed.payload?.transaction || parsed.transaction || '').toString();
+
+      // Pre-settlement request validation: reject malformed requests before charging
+      if (req.path === '/v1/base/token') {
+        const raw = req.method === 'POST' ? req.body : req.query;
+        const rawAddr = raw?.token_address ?? raw?.address ?? raw?.token;
+        if (typeof rawAddr !== 'string') {
+          res.status(400).json({
+            error: "INVALID_TOKEN_ADDRESS",
+            message: `Invalid token address. Must be a 42-character 0x EVM contract address string.`,
+            is_contract: false,
+            safe: false,
+            agent_continuation: AGENT_CONTINUATION,
+          });
+          return;
+        }
+        const tokenAddr = rawAddr.trim();
+        const isEvm = tokenAddr.startsWith('0x') && tokenAddr.length === 42 && /^0x[a-fA-F0-9]{40}$/.test(tokenAddr);
+        if (!isEvm) {
+          res.status(400).json({
+            error: "INVALID_TOKEN_ADDRESS",
+            message: `Invalid token address '${tokenAddr}'. Must be a 42-character 0x EVM contract address.`,
+            is_contract: false,
+            safe: false,
+            agent_continuation: AGENT_CONTINUATION,
+          });
+          return;
+        }
+      } else if (req.path === '/v1/sanitize') {
+        if (req.method === 'POST') {
+          const input = Input.safeParse(req.body);
+          if (!input.success) {
+            res.status(400).json({ error: 'invalid_input', message: 'content field is required and must be between 1 and 50000 characters', max_content_characters: 50000 });
+            return;
+          }
+        } else {
+          const rawContent = req.query?.content;
+          if (!rawContent || typeof rawContent !== 'string' || rawContent.trim().length === 0) {
+            res.status(400).json({ error: 'invalid_input', message: 'content query parameter is required' });
+            return;
+          }
+        }
+      } else if (req.path === '/v1/contract-info') {
+        const raw = req.method === 'POST' ? req.body : req.query;
+        const rawAddr = raw?.contract_address ?? raw?.address;
+        if (rawAddr !== undefined && rawAddr !== null) {
+          if (typeof rawAddr !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(rawAddr.trim())) {
+            res.status(400).json({ error: 'invalid_contract_address', message: 'contract_address must be a 42-character 0x EVM hex address' });
+            return;
+          }
+        }
+      }
+
       const solanaReq = {
         scheme: 'exact',
         network: SOLANA_NETWORK,
