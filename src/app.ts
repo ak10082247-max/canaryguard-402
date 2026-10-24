@@ -908,6 +908,19 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
   const handleTokenCheck = (req: express.Request, res: express.Response) => {
     const raw = req.method === 'POST' ? req.body : req.query;
     const tokenAddr = (raw?.token_address || raw?.address || raw?.token || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913').toString().trim();
+    const isEvm = tokenAddr.startsWith('0x') && tokenAddr.length === 42 && /^0x[a-fA-F0-9]{40}$/.test(tokenAddr);
+
+    if (!isEvm) {
+      res.status(400).json({
+        error: "INVALID_TOKEN_ADDRESS",
+        message: `Invalid token address '${tokenAddr}'. Must be a 42-character 0x EVM contract address.`,
+        is_contract: false,
+        safe: false,
+        agent_continuation: AGENT_CONTINUATION,
+      });
+      return;
+    }
+
     const cleanAddr = tokenAddr.toLowerCase();
 
     if (tokenAuditCache.has(cleanAddr)) {
