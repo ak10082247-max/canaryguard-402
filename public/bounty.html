@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CanaryGuard | $5.00+ USDC AI Security Red-Team Challenge</title>
-  <meta name="description" content="Test your prompt injection and jailbreak payloads against CanaryGuard's deterministic AI prompt firewall. $5.00+ USDC on-chain bounty pool." />
+  <meta name="description" content="Test prompt injection and jailbreak payloads against the CanaryGuard sanitizer. Free evaluation and optional paid API requests with settlement receipts." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -179,35 +179,35 @@
     </header>
 
     <div class="vault-hero">
-      <h1>The <span>$5.00+ USDC</span> AI Security Challenge</h1>
+      <h1>The <span>CanaryGuard</span> Red-Team Sandbox</h1>
       <p>
-        CanaryGuard defends autonomous AI agents using deterministic &lt;0.1ms heuristic filtering. Seeded 100% on-chain from live merchant treasury — grows +$0.010 USDC with every verification attempt!
+        Challenge #1 has officially concluded! Congratulations to <strong>@Leberwurst68</strong> for winning the $5.080 USDC bounty on Base Mainnet.
       </p>
     </div>
 
     <div class="bounty-card">
       <div class="rules-grid">
-        <div class="rule-box">
-          <div class="rule-title">Live Bounty Pot</div>
-          <div class="rule-val">$5.00+ USDC</div>
+        <div class="rule-box" style="border-color: #10b981; background: rgba(16, 185, 129, 0.1);">
+          <div class="rule-title" style="color: #34d399;">Challenge #1 Status</div>
+          <div class="rule-val" style="color: #10b981;">CONCLUDED / WON</div>
+        </div>
+        <div class="rule-box" style="border-color: #f59e0b; background: rgba(245, 158, 11, 0.1);">
+          <div class="rule-title">Winner Awarded</div>
+          <div class="rule-val" style="color: #fbbf24;">@Leberwurst68 ($5.080 USDC)</div>
         </div>
         <div class="rule-box">
-          <div class="rule-title">Official Attempt Fee</div>
+          <div class="rule-title">Paid API Price</div>
           <div class="rule-val">0.010 USDC</div>
         </div>
         <div class="rule-box">
           <div class="rule-title">Target Chains</div>
-          <div class="rule-val">Base (8453) &amp; Solana</div>
-        </div>
-        <div class="rule-box">
-          <div class="rule-title">Firewall Latency</div>
-          <div class="rule-val">&lt; 0.1ms</div>
+          <div class="rule-val">Base &amp; Solana</div>
         </div>
       </div>
 
-      <div class="objective-banner">
-        <strong>🎯 Challenge Objective:</strong> CanaryGuard is the deterministic firewall gatekeeper in front of an autonomous agent. To qualify for the bounty, submit a test payload containing an active <strong>instruction override</strong> (prompt hijack) or <strong>unauthorized system command</strong> that successfully slips past strict mode with status <code>"clean"</code> instead of being blocked.<br><br>
-        <strong>⚠️ Anti-Cheat &amp; Verification Oracle:</strong> All bounty claims must be accompanied by a settled on-chain Base transaction hash. Claims are deterministically re-simulated server-side against raw on-chain transaction calldata. Client-side browser tampering, Inspect Element modifications, or benign/non-adversarial inputs do not qualify.
+      <div class="objective-banner" style="border-left-color: #10b981; background: rgba(6, 78, 59, 0.4); border-color: #047857;">
+        <strong>🏆 Challenge #1 Concluded &amp; Verified On-Chain:</strong> The $5.080 USDC bounty was officially awarded and paid out to <strong>@Leberwurst68</strong> on Base Mainnet (<a href="https://basescan.org/tx/0x8199ee78f44985a48aa7b257ccbf00d1a8f8d0880ebfe03a3e155a1c9dd07d8b" target="_blank" style="color: #34d399; text-decoration: underline;">Tx: 0x8199ee78...</a>) for identifying the possessive-noun determiner gap (resolved in commit <a href="https://github.com/ak10082247-max/canaryguard-402/commit/27e54fb" target="_blank" style="color: #34d399; text-decoration: underline;"><code>27e54fb</code></a>).<br><br>
+        <strong>🔬 Interactive Sandbox:</strong> You can continue testing adversarial prompts and purchasing on-chain API evaluations ($0.010 USDC) below. All 80/80 benchmark tests are active in production. Challenge #2 with a fresh pot will be announced soon!
       </div>
 
       <div class="editor-label">
@@ -246,7 +246,7 @@
         </div>
         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
           <button id="btnFree" class="btn btn-secondary" onclick="fireTest()">Run Free Simulator ⚡</button>
-          <button id="btnPaidBase" class="btn btn-base" onclick="firePaidBase()">🔵 Pay 0.010 USDC &amp; Fire Live Attempt (Gasless on Base)</button>
+          <button id="btnPaidBase" class="btn btn-base" onclick="firePaidBase()">🔵 Review paid Base quote</button>
         </div>
       </div>
 
@@ -254,7 +254,7 @@
         <div id="receiptBanner" class="receipt-banner"></div>
         <div class="result-header">
           <div id="verdictBadge" class="badge-blocked">INTERCEPTED</div>
-          <div id="latencyVal" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted);">Latency: 0.08ms</div>
+          <div id="latencyVal" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted);">Latency: not measured</div>
         </div>
         <p id="msgVal" style="font-size: 0.9rem; margin-bottom: 0.75rem; color: #fff;"></p>
         <div class="editor-label"><span>Sanitized Content Filtered by Firewall:</span></div>
@@ -277,33 +277,33 @@ curl -X POST https://canaryguard-402.onrender.com/v1/sanitize \
   -H "PAYMENT-SIGNATURE: &lt;Base64-x402-Payment-Signature&gt;" \
   -d '{"content": "YOUR_EXPLOIT_PAYLOAD", "strict_mode": true}'</div>
         <p style="font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem;">
-          Remote MCP Server: <code>https://canaryguard-402.onrender.com/mcp</code> (Tool: <code>sanitizePromptText</code>)
+          Remote MCP Server: <code>https://canaryguard-402.onrender.com/mcp</code> (Tool: <code>canary_sanitize</code>)
         </p>
       </div>
 
       <div class="onchain-box" style="margin-top: 1rem; border-color: rgba(59, 130, 246, 0.4); background: rgba(17, 24, 39, 0.6);">
-        <div class="onchain-title" style="color: #60a5fa;">🚀 Fleet On-Chain Intelligence Suite (65 Live Endpoints)</div>
+        <div class="onchain-title" style="color: #60a5fa;">🚀 Explore the API Fleet</div>
         <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.75rem;">
-          Integrating autonomous agents or crypto trading bots? Leverage our enterprise x402 V2 fleet ($0.001 - $0.020 USDC per request, 100% gasless on Base & Solana):
+          Integrating autonomous agents or crypto trading bots? Leverage our x402 V2 fleet (read the exact current quote and available capabilities for each endpoint):
         </p>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; font-size: 0.8rem;">
           <div style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 0.4rem; border: 1px solid var(--border);">
-            <strong style="color: #38bdf8;">🛡️ CanaryGuard (34 Endpoints)</strong><br>
-            <span style="color: var(--muted);">Prompt injection firewall, token audit & Nansen smart-money profiler.</span><br>
+            <strong style="color: #38bdf8;">🛡️ CanaryGuard</strong><br>
+            <span style="color: var(--muted);">Prompt injection screening and agent security APIs.</span><br>
             <a href="https://canaryguard-402.onrender.com/" target="_blank" style="color: var(--accent); text-decoration: underline;">Launch Web Terminal →</a>
           </div>
           <div style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 0.4rem; border: 1px solid var(--border);">
-            <strong style="color: #4ade80;">🔍 RugShield (12 Endpoints)</strong><br>
+            <strong style="color: #4ade80;">🔍 RugShield</strong><br>
             <span style="color: var(--muted);">Pre-trade honeypot simulation, buy/sell tax verify & LP lock proofs.</span><br>
             <a href="https://rugshield-402.onrender.com/" target="_blank" style="color: #4ade80; text-decoration: underline;">Open RugShield →</a>
           </div>
           <div style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 0.4rem; border: 1px solid var(--border);">
-            <strong style="color: #c084fc;">🌐 StealthGuard (15 Endpoints)</strong><br>
+            <strong style="color: #c084fc;">🌐 StealthGuard</strong><br>
             <span style="color: var(--muted);">Cloudflare-bypassing web extraction & Polymarket whale orderflow.</span><br>
             <a href="https://stealthguard-402.onrender.com/" target="_blank" style="color: #c084fc; text-decoration: underline;">Open StealthGuard →</a>
           </div>
           <div style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 0.4rem; border: 1px solid var(--border);">
-            <strong style="color: #facc15;">⚡ Agent Tollbooth (4 Endpoints)</strong><br>
+            <strong style="color: #facc15;">⚡ Agent Tollbooth</strong><br>
             <span style="color: var(--muted);">Cross-DEX arbitrage radar, smart routing & autonomous contract audit.</span><br>
             <a href="https://x402-agent-tollbooth.onrender.com/" target="_blank" style="color: #facc15; text-decoration: underline;">Open Tollbooth →</a>
           </div>
@@ -361,7 +361,7 @@ curl -X POST https://canaryguard-402.onrender.com/v1/sanitize \
 
     async function fireTest() {
       if (getTrialsUsed() >= MAX_FREE_TRIALS) {
-        alert("Free evaluation quota exhausted (3/3 used)! To test live against the vault and compete for the $5.00+ USDC prize pot, click 'Pay 0.010 USDC & Fire Live Attempt'.");
+        alert("Free evaluation quota exhausted (3/3 used)! You can review the paid API quote to make another request.");
         const btnPaid = document.getElementById('btnPaidBase');
         if (btnPaid) btnPaid.focus();
         return;
@@ -383,6 +383,7 @@ curl -X POST https://canaryguard-402.onrender.com/v1/sanitize \
           body: JSON.stringify({ content: text, strict_mode: isStrict })
         });
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Evaluation unavailable (${res.status})`);
         const duration = (performance.now() - t0).toFixed(2);
 
         recordTrial();
@@ -406,18 +407,23 @@ curl -X POST https://canaryguard-402.onrender.com/v1/sanitize \
         } else if (data.status === 'sanitized') {
           badge.className = 'badge-sanitized';
           badge.textContent = 'SANITIZED & PRESERVED';
-          msg.textContent = `🛡️ CanaryGuard scrubbed threat lines/tokens: ${(data.threats_neutralized || []).join(', ')}. The surrounding clean content was safely preserved for the agent!`;
+          msg.textContent = `🛡️ CanaryGuard scrubbed threat lines/tokens: ${(data.threats_neutralized || []).join(', ')}. Inspect the returned output before passing it to your agent.`;
           out.textContent = data.sanitized_content;
-        } else {
+        } else if (data.status === 'clean') {
           badge.className = 'badge-clean';
-          badge.textContent = 'PASSED (BENIGN INPUT)';
+          badge.textContent = 'CLEAN CLASSIFICATION';
           let addrInfo = '';
           if (data.crypto_addresses && data.crypto_addresses.length > 0) {
             const addrList = data.crypto_addresses.map(a => `${a.address.slice(0, 10)}... (risk: ${a.risk_score})`).join(', ');
             addrInfo = ` 🔍 Extracted crypto addresses: ${addrList}.`;
           }
-          msg.textContent = `ℹ️ Benign Input: Content passed safely to downstream agent.${addrInfo} (Challenge Rule: Benign non-adversarial text cannot claim the bounty — an entry must demonstrate an active adversarial hijack that slips past strict mode).`;
-          out.textContent = data.sanitized_content || '[BENIGN CONTENT SAFELY PASSED TO AGENT]';
+          msg.textContent = `ℹ️ Benign Input: The screening returned a clean classification.${addrInfo} (Challenge Rule: A clean classification is a screening result, not proof that content is safe).`;
+          out.textContent = data.sanitized_content ?? '';
+        } else {
+          badge.className = 'badge-unknown';
+          badge.textContent = 'UNRECOGNIZED RESPONSE';
+          msg.textContent = 'The API did not return a recognized classification. Inspect the raw response.';
+          out.textContent = JSON.stringify(data,null,2);
         }
       } catch (err) {
         alert('Test error: ' + err.message);
@@ -428,207 +434,61 @@ curl -X POST https://canaryguard-402.onrender.com/v1/sanitize \
 
     async function firePaidBase() {
       const text = document.getElementById('payload').value.trim();
-      if (!text) return alert("Please enter a payload to test!");
-
-      if (!window.ethereum) {
-        return alert("MetaMask, Coinbase Wallet, or a Web3 browser extension is required for 1-click on-chain payment. Please install one to test gasless on Base, or submit via curl.");
-      }
-
-      const isStrict = document.getElementById('modeStrict').checked;
+      if (!text) return alert('Please enter a payload to test.');
       const btnPaid = document.getElementById('btnPaidBase');
-      const originalText = btnPaid.innerHTML;
+      const originalText = btnPaid.textContent;
       btnPaid.disabled = true;
-      btnPaid.innerHTML = 'Connecting Wallet... ⏳';
-
       try {
-        // 1. Request user account
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        if (!accounts || !accounts[0]) throw new Error("No wallet account selected");
-        const account = accounts[0];
-
-        btnPaid.innerHTML = 'Switching to Base Chain... ⏳';
-
-        // 2. Ensure connected to Base Mainnet (chainId: 8453 / 0x2105)
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x2105' }]
-          });
-        } catch (switchErr) {
-          if (switchErr.code === 4902) {
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: '0x2105',
-                chainName: 'Base',
-                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-                rpcUrls: ['https://mainnet.base.org'],
-                blockExplorerUrls: ['https://basescan.org']
-              }]
-            });
-          } else {
-            throw switchErr;
-          }
+        const { createBasePurchase, usdc } = await import('/x402-browser.mjs');
+        window.bountyPurchaseClient ||= createBasePurchase({ origin: location.origin, wallet: window.ethereum, maxAmountMicro:'10000',
+          status: message => { btnPaid.textContent = message; },
+          confirmQuote: async quote => window.confirm(`Pay ${quote.amountUsdc} USDC on Base for this sanitizer request?\nRecipient: ${quote.recipient}\nAuthorization expires in at most ${quote.maxAuthorizationSeconds} seconds.`) });
+        const client = window.bountyPurchaseClient;
+        const result = client.hasPending() ? await client.recover() : await client.buy('/v1/sanitize', {
+          content: text, strict_mode: document.getElementById('modeStrict').checked
+        });
+        const data = result.data;
+        if (result.request) {
+          document.getElementById('payload').value = result.request.content;
+          document.getElementById('modeStrict').checked = result.request.strict_mode;
+          document.getElementById('modeSanitize').checked = !result.request.strict_mode;
         }
-
-        btnPaid.innerHTML = 'Requesting Challenge... ⏳';
-
-        // 3. Query 402 challenge terms from /v1/sanitize
-        const challengeRes = await fetch('/v1/sanitize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: text, strict_mode: isStrict })
-        });
-
-        const reqHeader = challengeRes.headers.get('PAYMENT-REQUIRED') || challengeRes.headers.get('payment-required');
-        if (!reqHeader) throw new Error("Failed to retrieve x402 payment requirements from server");
-        const challenge = JSON.parse(atob(reqHeader));
-
-        btnPaid.innerHTML = 'Sign 0.010 USDC (Gasless)... ✍️';
-
-        // 4. Generate 32-byte hex nonce & expiry
-        const randomBytes = new Uint8Array(32);
-        window.crypto.getRandomValues(randomBytes);
-        const nonce = '0x' + Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        const validBefore = String(Math.floor(Date.now() / 1000) + 3600);
-
-        const eip712Data = {
-          types: {
-            EIP712Domain: [
-              { name: "name", type: "string" },
-              { name: "version", type: "string" },
-              { name: "chainId", type: "uint256" },
-              { name: "verifyingContract", type: "address" }
-            ],
-            TransferWithAuthorization: [
-              { name: "from", type: "address" },
-              { name: "to", type: "address" },
-              { name: "value", type: "uint256" },
-              { name: "validAfter", type: "uint256" },
-              { name: "validBefore", type: "uint256" },
-              { name: "nonce", type: "bytes32" }
-            ]
-          },
-          domain: {
-            name: "USD Coin",
-            version: "2",
-            chainId: 8453,
-            verifyingContract: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-          },
-          primaryType: "TransferWithAuthorization",
-          message: {
-            from: account,
-            to: "0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1",
-            value: "10000",
-            validAfter: "0",
-            validBefore: validBefore,
-            nonce: nonce
-          }
-        };
-
-        const sig = await window.ethereum.request({
-          method: 'eth_signTypedData_v4',
-          params: [account, JSON.stringify(eip712Data)]
-        });
-
-        btnPaid.innerHTML = 'Settling on Base via Coinbase CDP... 🚀';
-
-        // 5. Build x402 signature payload
-        const paymentPayload = {
-          x402Version: 2,
-          resource: challenge.resource,
-          accepted: challenge.accepts[0],
-          payload: {
-            signature: sig,
-            authorization: {
-              from: account,
-              to: "0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1",
-              value: "10000",
-              validAfter: "0",
-              validBefore: validBefore,
-              nonce: nonce
-            }
-          },
-          extensions: challenge.extensions
-        };
-
-        const paymentSigHeader = btoa(unescape(encodeURIComponent(JSON.stringify(paymentPayload))));
-
-        // 6. Submit paid attempt
-        const t0 = performance.now();
-        const paidRes = await fetch('/v1/sanitize', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'PAYMENT-SIGNATURE': paymentSigHeader
-          },
-          body: JSON.stringify({ content: text, strict_mode: isStrict })
-        });
-
-        if (!paidRes.ok) {
-          const errData = await paidRes.json().catch(() => ({}));
-          throw new Error(errData.error || `Payment settlement failed with status ${paidRes.status}`);
-        }
-
-        const data = await paidRes.json();
-        const duration = (performance.now() - t0).toFixed(2);
-
-        // 7. Parse on-chain settlement receipt
-        let txHash = '';
-        let payer = account;
-        try {
-          const respHeader = paidRes.headers.get('PAYMENT-RESPONSE') || paidRes.headers.get('payment-response');
-          if (respHeader) {
-            const receipt = JSON.parse(atob(respHeader));
-            if (receipt.transaction) txHash = receipt.transaction;
-            if (receipt.payer) payer = receipt.payer;
-          }
-        } catch {}
-
         const box = document.getElementById('resultBox');
         const badge = document.getElementById('verdictBadge');
         const msg = document.getElementById('msgVal');
         const out = document.getElementById('cleanOutput');
-        const lat = document.getElementById('latencyVal');
         const receiptEl = document.getElementById('receiptBanner');
-
         box.style.display = 'block';
-        lat.textContent = `Latency: ${duration}ms (Base Settled)`;
-
-        if (receiptEl) {
-          receiptEl.style.display = 'block';
-          receiptEl.innerHTML = `💰 <strong>0.010 USDC Settled On-Chain!</strong><br>` +
-            (txHash ? `Transaction: <a href="https://basescan.org/tx/${txHash}" target="_blank" style="color: #93c5fd; text-decoration: underline;">${txHash.slice(0, 18)}... (View on BaseScan ↗)</a><br>` : '') +
-            `Payer: <code>${payer}</code> | Facilitator: <em>Coinbase CDP (Gasless $0 ETH)</em> | Bounty Pot: <strong>+$0.010 USDC</strong>`;
+        document.getElementById('latencyVal').textContent = result.replayed ? 'Original request recovered' : (result.paid ? 'Paid API response received' : 'Free response received');
+        receiptEl.replaceChildren();
+        receiptEl.style.display = result.receipt ? 'block' : 'none';
+        if (result.receipt) {
+          const link = document.createElement('a');
+          link.href = `https://basescan.org/tx/${result.receipt.transaction}`;
+          link.target = '_blank'; link.rel = 'noopener noreferrer';
+          link.textContent = 'View settlement transaction';
+          receiptEl.append(document.createTextNode(`${usdc(result.receipt.amount)} USDC settled on Base. Payer: ${result.receipt.payer}. `), link);
         }
-
-        if (data.status === 'blocked') {
-          badge.className = 'badge-blocked';
-          badge.textContent = 'INTERCEPTED & BLOCKED';
-          msg.textContent = `🛡️ CanaryGuard neutralized threats: ${(data.threats_neutralized || []).join(', ') || 'instruction_override'}. The attempt was verified on-chain and safely blocked!`;
-          out.textContent = data.sanitized_content ? data.sanitized_content : '[CONTENT DROPPED ENTIRELY IN STRICT MODE]';
-        } else if (data.status === 'sanitized') {
-          badge.className = 'badge-sanitized';
-          badge.textContent = 'SANITIZED & PRESERVED';
-          msg.textContent = `🛡️ CanaryGuard scrubbed threat tokens: ${(data.threats_neutralized || []).join(', ')}. The attempt was verified on-chain.`;
-          out.textContent = data.sanitized_content;
-        } else {
-          badge.className = 'badge-clean';
-          badge.textContent = 'PASSED (BENIGN INPUT)';
-          msg.textContent = `ℹ️ Benign Input: Content passed safely to downstream agent. No instruction override or prompt injection attempt was detected in this transaction — the vault challenge remains unclaimed. (Challenge Rule: Benign non-adversarial inputs do not qualify for the bounty).`;
-          out.textContent = data.sanitized_content || '[BENIGN CONTENT PASSED TO AGENT]';
-        }
-
-      } catch (err) {
-        alert("Payment / Test Error: " + (err.message || err));
+        const status = ['blocked','sanitized','clean'].includes(data.status) ? data.status : 'unknown';
+        badge.className = 'badge-' + status;
+        badge.textContent = status.toUpperCase();
+        msg.textContent = `Actual API classification: ${status}. Threat categories: ${(data.threats_neutralized || []).join(', ') || 'none reported'}. Payment confirms this request was settled; it does not independently prove a bounty qualification.`;
+        out.textContent = data.sanitized_content ?? JSON.stringify(data, null, 2);
+      } catch (error) {
+        alert('Request / payment status: ' + error.message);
       } finally {
         btnPaid.disabled = false;
-        btnPaid.innerHTML = originalText;
+        btnPaid.textContent = window.bountyPurchaseClient?.hasPending() ? 'Recover original payment (no new signature)' : originalText;
       }
     }
 
     // Initialize trial UI on load
-    window.addEventListener('DOMContentLoaded', updateTrialUI);
+    window.addEventListener('DOMContentLoaded', async () => {
+      updateTrialUI();
+      const { createBasePurchase } = await import('/x402-browser.mjs');
+      const recovery = createBasePurchase({origin:location.origin,wallet:window.ethereum});
+      if (recovery.hasPending()) document.getElementById('btnPaidBase').textContent = 'Recover original payment (no new signature)';
+    });
   </script>
 </body>
 </html>
