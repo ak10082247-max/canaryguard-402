@@ -53,8 +53,8 @@ export const sanitizeResultJsonSchema = {
     },
     safety_receipt: {
       type: 'string',
-      enum: ['canary-v1-verified'],
-      description: 'Deterministic processing receipt marker',
+      pattern: '^canary-v1-[a-f0-9]{16}-[a-f0-9]{16}$',
+      description: 'Input/output integrity checksum marker; keyed authentication is described separately in safety_receipt_details',
     },
     crypto_addresses: {
       type: 'array',
@@ -131,7 +131,7 @@ export function paymentOption(payTo = RECIPIENT, amount = '10000') {
     network: NETWORK,
     payTo,
     price: { asset: ASSET, amount, extra: { name: 'USD Coin', version: '2' } },
-    maxTimeoutSeconds: 120,
+    maxTimeoutSeconds: 300,
   };
 }
 
@@ -358,20 +358,8 @@ export const PRIMARY_15_SPECS: EndpointSpec[] = [
     amountMicro: '20000',
     priceUsd: '0.02',
     tags: ['AI Security', 'EIP-712'],
-    inputExample: {
-      verifying_contract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      primary_type: 'TransferWithAuthorization',
-      spender_or_to: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
-    },
-    inputSchema: {
-      type: 'object',
-      properties: {
-        verifying_contract: { type: 'string' },
-        primary_type: { type: 'string' },
-        spender_or_to: { type: 'string' },
-      },
-      required: ['verifying_contract'],
-    },
+    inputExample: {"typed_data": {"domain": {"name": "USD Coin", "version": "2", "chainId": 8453, "verifyingContract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"}, "types": {"Permit": [{"name": "value", "type": "uint256"}]}, "primaryType": "Permit", "message": {"value": "10000"}}},
+    inputSchema: {"type": "object", "properties": {"typed_data": {"type": "object", "properties": {"domain": {"type": "object"}, "types": {"type": "object"}, "primaryType": {"type": "string"}, "message": {"type": "object"}}, "required": ["domain", "types", "primaryType", "message"]}}, "required": ["typed_data"]},
     outputExample: {
       verifying_contract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       is_drainer_permit: false,
@@ -462,18 +450,8 @@ export const PRIMARY_15_SPECS: EndpointSpec[] = [
     amountMicro: '20000',
     priceUsd: '0.020',
     tags: ['Agent Verification', 'Attestation', 'x402'],
-    inputExample: {
-      agent_wallet: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
-      service_domain: 'canaryguard-402.onrender.com',
-    },
-    inputSchema: {
-      type: 'object',
-      properties: {
-        agent_wallet: { type: 'string', description: 'Agent or merchant EVM wallet address (0x...)' },
-        service_domain: { type: 'string', description: 'Optional x402 service domain to verify' },
-      },
-      required: ['agent_wallet'],
-    },
+    inputExample: { agent_wallet: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1', service_domain: 'canaryguard-402.onrender.com', message: 'Obtain the current statement from /v1/verify/agent-attestation/challenge and sign it with the claimed wallet', signature: '0x<owner EIP-191 signature>', signed_at: 0 },
+    inputSchema: {"type": "object", "properties": {"agent_wallet": {"type": "string"}, "service_domain": {"type": "string"}, "message": {"type": "string"}, "signature": {"type": "string"}, "signed_at": {"type": "integer"}}, "required": ["agent_wallet", "service_domain", "message", "signature", "signed_at"]},
     outputExample: {
       agent_wallet: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
       verified: true,
@@ -768,16 +746,8 @@ export const VEXTORIUM_COMPAT_SPECS: EndpointSpec[] = [
     amountMicro: '10000',
     priceUsd: '0.010',
     tags: ['AI Security', 'Safety'],
-    inputExample: {
-      verifying_contract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      primary_type: 'TransferWithAuthorization',
-      spender_or_to: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
-    },
-    inputSchema: {
-      type: 'object',
-      properties: { verifying_contract: { type: 'string' } },
-      required: ['verifying_contract'],
-    },
+    inputExample: {"typed_data": {"domain": {"name": "USD Coin", "version": "2", "chainId": 8453, "verifyingContract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"}, "types": {"Permit": [{"name": "value", "type": "uint256"}]}, "primaryType": "Permit", "message": {"value": "10000"}}},
+    inputSchema: {"type": "object", "properties": {"typed_data": {"type": "object", "properties": {"domain": {"type": "object"}, "types": {"type": "object"}, "primaryType": {"type": "string"}, "message": {"type": "object"}}, "required": ["domain", "types", "primaryType", "message"]}}, "required": ["typed_data"]},
     outputExample: { verdict: 'SAFE_TO_SIGN' },
   },
   {
@@ -808,7 +778,7 @@ export const NANSEN_COMPAT_SPECS: EndpointSpec[] = [
   {
     path: '/api/v1/token-screener',
     operationId: 'nansenTokenScreener',
-    summary: 'Real-time Solana & Base token screener with honeypot & liquidity filter ($0.010 USDC — 80% discount)',
+    summary: 'Real-time Solana & Base token screener with honeypot & liquidity filter ($0.010 USDC â€” 80% discount)',
     description: 'Screens trending Solana (Pump.fun/Raydium) and Base (Aerodrome/Uniswap V3) tokens with pre-verified honeypot, tax, and liquidity depth metrics.',
     amountMicro: '10000',
     priceUsd: '0.010',

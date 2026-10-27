@@ -1,3 +1,4 @@
+import { privateKeyToAccount } from 'viem/accounts';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
@@ -6,11 +7,18 @@ import type { FacilitatorClient } from '@x402/core/server';
 import type { PaymentPayload, SettleResponse } from '@x402/core/types';
 import { decodePaymentRequiredHeader, encodePaymentSignatureHeader } from '@x402/core/http';
 import { createApp } from '../src/app.js';
-import { NETWORK, RECIPIENT } from '../src/config.js';
+import { ASSET, NETWORK, RECIPIENT } from '../src/config.js';
 import { createPayments } from '../src/payments.js';
 import { fingerprint } from '../src/retries.js';
 
-const PAYER = '0x1111111111111111111111111111111111111111';
+// Deterministic unfunded fixture key, never a user wallet or environment credential.
+const fixtureAccount = privateKeyToAccount(('0x' + '01'.repeat(32)) as `0x${string}`);
+const PAYER = fixtureAccount.address;
+const transferTypes = { TransferWithAuthorization: [
+  { name: 'from', type: 'address' }, { name: 'to', type: 'address' }, { name: 'value', type: 'uint256' },
+  { name: 'validAfter', type: 'uint256' }, { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' },
+] } as const;
+
 const TX = `0x${'cd'.repeat(32)}`;
 const CONTENT = { content: 'Ordinary external text.', strict_mode: true };
 
@@ -21,8 +29,8 @@ async function fixture(t: TestContext, settle: () => Promise<SettleResponse>) {
     verify: async () => { calls.verify++; return { isValid: true, payer: PAYER }; },
     settle: async () => { calls.settle++; return settle(); },
   };
-  // All signatures and settlements in this fixture are accepted by this mock;
-  // the fixture never contacts a facilitator or blockchain.
+  // Genuine signatures use an unfunded deterministic local key; settlement is mocked.
+  // The fixture never contacts a facilitator or blockchain.
   const payments = await createPayments({ PUBLIC_URL: 'https://canaryguard-retries.example', NETWORK: 'base' }, facilitator);
   const app = await createApp(payments);
   const server: Server = app.listen(0, '127.0.0.1');
@@ -48,15 +56,17 @@ async function fixture(t: TestContext, settle: () => Promise<SettleResponse>) {
   const challenge = await post(CONTENT);
   const required = decodePaymentRequiredHeader(challenge.headers.get('PAYMENT-REQUIRED')!);
   await challenge.arrayBuffer();
+  const authorization = { from: PAYER, to: RECIPIENT, value: '10000', validAfter: '0', validBefore: String(Math.floor(Date.now() / 1000) + 120), nonce: `0x${'03'.repeat(32)}` as `0x${string}` };
+  const signature = await fixtureAccount.signTypedData({ domain: { name: 'USD Coin', version: '2', chainId: 8453, verifyingContract: ASSET }, types: transferTypes, primaryType: 'TransferWithAuthorization',
+    message: { ...authorization, value: BigInt(authorization.value), validAfter: BigInt(authorization.validAfter), validBefore: BigInt(authorization.validBefore) } });
   const payment: PaymentPayload = {
     x402Version: 2, accepted: required.accepts[0], resource: required.resource, extensions: required.extensions,
-    payload: { signature: `0x${'22'.repeat(65)}`, authorization: { from: PAYER, to: RECIPIENT, value: '3000', validAfter: '0',
-      validBefore: String(Math.floor(Date.now() / 1000) + 120), nonce: `0x${'03'.repeat(32)}` } },
+    payload: { signature, authorization },
   };
   return { calls, payment, post, observe };
 }
 
-const settled = (): SettleResponse => ({ success: true, payer: PAYER, transaction: TX, network: NETWORK, amount: '3000' });
+const settled = (): SettleResponse => ({ success: true, payer: PAYER, transaction: TX, network: NETWORK, amount: '10000' });
 
 function reverseObjectKeys(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(reverseObjectKeys);

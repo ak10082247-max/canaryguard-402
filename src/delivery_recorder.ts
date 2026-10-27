@@ -24,7 +24,7 @@ export interface DeliveryRecord {
 const MAX_MEMORY_RECORDS = 200;
 const memoryStore: DeliveryRecord[] = [];
 const paidMemoryStore: DeliveryRecord[] = [];
-const logFilePath = path.join(process.cwd(), 'deliveries.jsonl');
+const logFilePath = path.join(process.cwd(), 'state', 'deliveries.jsonl');
 
 function decodePayerFromHeader(rawHeader?: string, defaultUsd = 0.008): { payer: string; amount: number } {
   if (!rawHeader) return { payer: 'unpaid_probe', amount: 0.0 };
@@ -67,7 +67,7 @@ export function recordDeliveryMiddleware(req: Request, res: Response, next: Next
     } catch {
       capturedBody = String(body);
     }
-    res.locals.responsePreview = capturedBody.slice(0, 300);
+    res.locals.responsePreview = '[content withheld]';
     return originalJson(body);
   };
 
@@ -78,7 +78,7 @@ export function recordDeliveryMiddleware(req: Request, res: Response, next: Next
       } catch {
         capturedBody = String(body);
       }
-      res.locals.responsePreview = capturedBody.slice(0, 300);
+      res.locals.responsePreview = '[content withheld]';
     }
     return originalSend(body);
   };
@@ -118,16 +118,16 @@ export function recordDeliveryMiddleware(req: Request, res: Response, next: Next
       settled,
       tx_hash: txHash,
       payer_wallet: resolvedPayer,
-      amount_usdc: (settled || (res.statusCode === 200 && rawPaymentHdr)) ? (resolvedAmount || defaultUsd) : 0.0,
+      amount_usdc: settled && !res.getHeader('Idempotency-Replayed') ? (resolvedAmount || defaultUsd) : 0.0,
       endpoint: req.path,
       method: req.method,
       user_agent: req.get('user-agent') || 'none',
-      client_ip,
-      referer: req.get('referer') || 'direct',
-      request_input: reqInputTruncated,
+      client_ip: '[withheld]',
+      referer: '[withheld]',
+      request_input: { withheld: true },
       http_status: res.statusCode,
       latency_ms,
-      response_preview: (capturedBody || '').slice(0, 300),
+      response_preview: '[withheld]',
     };
 
     memoryStore.unshift(record);
@@ -135,7 +135,7 @@ export function recordDeliveryMiddleware(req: Request, res: Response, next: Next
       memoryStore.pop();
     }
 
-    if (settled || (res.statusCode === 200 && Boolean(rawPaymentHdr))) {
+    if (settled && !res.getHeader('Idempotency-Replayed')) {
       paidMemoryStore.unshift(record);
       if (paidMemoryStore.length > MAX_MEMORY_RECORDS) {
         paidMemoryStore.pop();
@@ -143,6 +143,7 @@ export function recordDeliveryMiddleware(req: Request, res: Response, next: Next
     }
 
     try {
+      fs.mkdirSync(path.dirname(logFilePath),{recursive:true,mode:0o700});
       fs.appendFileSync(logFilePath, JSON.stringify(record) + '\n', 'utf8');
     } catch {}
   });

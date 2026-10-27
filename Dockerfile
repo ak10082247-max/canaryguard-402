@@ -14,6 +14,7 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/public ./public
 COPY --chown=node:node package.json ./
+RUN mkdir -p /app/state && chown node:node /app/state
 USER node
 EXPOSE 4020
 CMD ["node", "dist/server.js"]

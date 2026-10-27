@@ -7,3 +7,9 @@ dist
 test
 scripts
 seed-result.json
+
+state
+.pytest_cache
+deliveries.jsonl*
+*.sqlite*
+*.db*

@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto';
 import type { RequestHandler } from 'express';
 import { decodePaymentResponseHeader } from '@x402/core/http';
+import { ENDPOINT_MAP } from './config.js';
+import { configuredJournal, type PaymentJournal } from './payment_journal.js';
+import { verifyPaymentOwnership, canonicalPaymentIdentity } from './payment_auth.js';
 
 export function fingerprint(value: unknown) {
   const canonical = JSON.stringify(value, (_key, item: unknown) => {
@@ -11,22 +14,28 @@ export function fingerprint(value: unknown) {
   });
   return createHash('sha256').update(canonical ?? 'undefined').digest('hex');
 }
+
+export function paymentIdentity(value: any) {
+  return canonicalPaymentIdentity(value) || fingerprint(value);
+}
+
 type Receipt = { bodyHash: string; body: Buffer; headers: Record<string, string>; expires: number };
 
 // Same authorization + different content is a conflict. Receipt cache is bounded,
 // volatile and never authorizes a fresh payment; it only repeats completed output.
-export function receiptRetries(limit = 256, maxBytes = 8 * 1024 * 1024, inFlightTimeoutMs = 4 * 60 * 1000): RequestHandler {
+export function receiptRetries(limit = 256, maxBytes = 8 * 1024 * 1024, inFlightTimeoutMs = 4 * 60 * 1000, journal: PaymentJournal | undefined = configuredJournal()): RequestHandler {
   const receipts = new Map<string, Receipt>();
   const inFlight = new Map<string, { bodyHash: string; done: Promise<void> }>();
   let bytes = 0;
   const remove = (key: string) => { const row = receipts.get(key); if (row) bytes -= row.body.length; receipts.delete(key); };
   return async (req, res, next) => {
     const header = req.get('PAYMENT-SIGNATURE') || req.get('X-PAYMENT');
-    if (!header || req.method !== 'POST' || req.path !== '/v1/sanitize') return next();
+    if (!header || !['GET','POST','HEAD'].includes(req.method) || !ENDPOINT_MAP.has(req.path)) return next();
     let payload: unknown;
-    try { payload = JSON.parse(Buffer.from(header, 'base64').toString('utf8')); } catch { return next(); }
-    const key = fingerprint(payload);
-    const bodyHash = fingerprint(req.body);
+    try { payload = JSON.parse(header.trim().startsWith('{') ? header : Buffer.from(header, 'base64').toString('utf8')); } catch { return next(); }
+    if (!await verifyPaymentOwnership(payload)) { res.status(402).json({ error: 'invalid_payment_ownership' }); return; }
+    const key = paymentIdentity(payload);
+    const bodyHash = fingerprint({ method: req.method, path: req.path, input: req.method === 'POST' ? req.body : req.query });
     const previous = inFlight.get(key);
     if (previous) {
       if (previous.bodyHash !== bodyHash) { res.status(409).json({ error: 'payment_request_conflict' }); return; }
@@ -41,6 +50,23 @@ export function receiptRetries(limit = 256, maxBytes = 8 * 1024 * 1024, inFlight
     }
     // An unsuccessful concurrent attempt must not be independently settled again.
     if (previous) { res.status(503).json({ error: 'retry_original_payment_later' }); return; }
+    if (journal) {
+      try {
+        const saved = journal.get(key);
+        if (saved) {
+          if (saved.request_hash !== bodyHash) { res.status(409).json({ error: 'payment_request_conflict' }); return; }
+          if (saved.phase !== 'completed' || !saved.result) { res.status(503).json({ error: 'payment_reconciliation_required', retry: 'Do not authorize another payment' }); return; }
+          const result = JSON.parse(saved.result);
+          res.set(result.headers).set('Idempotency-Replayed','true').status(result.status).end(Buffer.from(result.body,'base64')); return;
+        }
+      } catch { res.status(503).json({ error: 'payment_journal_unavailable' }); return; }
+    }
+    res.locals.paymentJournal = journal;
+    res.locals.paymentOperationId = key;
+    res.locals.claimPaymentOperation = () => {
+      if (journal?.claim(key,bodyHash)) throw new Error('payment_operation_already_claimed');
+      res.locals.paymentOperationClaimed = true;
+    };
     if (inFlight.size >= 64) { res.status(429).json({ error: 'payment_capacity_exceeded' }); return; }
     let complete!: () => void;
     const done = new Promise<void>(resolve => { complete = resolve; });
@@ -76,6 +102,12 @@ export function receiptRetries(limit = 256, maxBytes = 8 * 1024 * 1024, inFlight
         remove(key);
         receipts.set(key, { bodyHash, headers, body, expires: Date.now() + 10 * 60 * 1000 }); bytes += body.length;
         while (receipts.size > limit || bytes > maxBytes) remove(receipts.keys().next().value!);
+      }
+      if (journal && res.locals.paymentOperationClaimed && res.statusCode === 200 && settled && length <= 1024*1024) {
+        const headers: Record<string,string> = { 'Content-Type':'application/json','Cache-Control':'no-store' };
+        for (const name of ['PAYMENT-RESPONSE','EXTENSION-RESPONSES']) { const value=res.getHeader(name); if(typeof value==='string') headers[name]=value; }
+        try { journal.complete(key,{status:res.statusCode,headers,body:Buffer.concat(chunks).toString('base64'),prepared:res.locals.acquiredResult}); }
+        catch { /* The pending durable claim remains locked; never authorize a replacement charge. */ }
       }
       release();
     };

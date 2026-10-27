@@ -112,7 +112,9 @@ test('OpenAPI contract: response schema accurately describes real API output', a
     assert.equal(typeof data.sanitized_content, 'string', `${tc.name}: sanitized_content`);
     assert.equal(typeof data.injection_detected, 'boolean', `${tc.name}: injection_detected`);
     assert.ok(Array.isArray(data.threats_neutralized), `${tc.name}: threats_neutralized`);
-    assert.equal(data.safety_receipt, 'canary-v1-verified', `${tc.name}: safety_receipt`);
+    assert.match(data.safety_receipt, /^canary-v1-[a-f0-9]{16}-[a-f0-9]{16}$/, `${tc.name}: safety_receipt`);
+    assert.equal(data.safety_receipt_details.algorithm, 'none');
+    assert.equal(data.safety_receipt_details.signature, null);
     assert.ok(['clean', 'sanitized', 'blocked'].includes(data.status), `${tc.name}: status`);
     assert.ok(Array.isArray(data.crypto_addresses), `${tc.name}: crypto_addresses`);
     assert.ok(data.inspection && data.inspection.method === 'deterministic-rules', `${tc.name}: inspection`);
