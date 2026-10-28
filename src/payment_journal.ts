@@ -23,6 +23,11 @@ export class PaymentJournal {
   prepare(id: string, result: unknown) {
     this.db.prepare("UPDATE operations SET result=? WHERE id=? AND phase='pending'").run(JSON.stringify({prepared:result}),id);
   }
+  /** Only the caller that owns a failed pre-settlement acquisition may release
+   * its empty claim. Prepared, completed and uncertain operations stay locked. */
+  releaseUnacquired(id:string) {
+    return this.db.prepare("DELETE FROM operations WHERE id=? AND phase='pending' AND result IS NULL").run(id).changes > 0;
+  }
   close() { this.db.close(); }
 }
 export function configuredJournal() {

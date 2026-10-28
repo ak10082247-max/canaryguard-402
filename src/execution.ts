@@ -93,9 +93,17 @@ export async function executeEndpoint(path: string, raw: any, deps: Dependencies
     result = sanitizeContent(input.data!.content, input.data!.strict_mode);
   } else if (['/v1/mcp-tool-auditor', '/v1/security/mcp-tool-poisoning-audit'].includes(path)) {
     const name = text(raw, 'tool_name'); const description = text(raw, 'tool_description');
-    const inspection = sanitizeContent(description, true);
-    result = { tool_name: name, poisoning_detected: inspection.injection_detected, threats_neutralized: inspection.threats_neutralized,
-      sanitized_description: inspection.sanitized_content, verdict: inspection.injection_detected ? 'BLOCK_MALICIOUS_MCP_TOOL' : 'NO_PATTERN_DETECTED', coverage: 'description heuristic; tool execution and schema behavior not attested' };
+    if(raw.input_schema!==undefined&&(!raw.input_schema||typeof raw.input_schema!=='object'||Array.isArray(raw.input_schema))) invalid('input_schema must be a JSON object');
+    const schemaText=raw.input_schema===undefined?'{}':JSON.stringify(raw.input_schema);
+    if(schemaText.length>50000) invalid('input_schema exceeds 50000 characters');
+    const inspections={tool_name:sanitizeContent(name,true),tool_description:sanitizeContent(description,true),input_schema:sanitizeContent(schemaText,true)};
+    const sources=Object.entries(inspections).filter(([,inspection])=>inspection.injection_detected).map(([source])=>source);
+    result = { tool_name:name,poisoning_detected:sources.length>0,poisoning_sources:sources,
+      threats_neutralized:[...new Set(Object.values(inspections).flatMap(inspection=>inspection.threats_neutralized))],
+      sanitized_description:inspections.tool_description.sanitized_content,
+      sanitized_input_schema:inspections.input_schema.injection_detected?null:raw.input_schema??null,
+      verdict:sources.length?'BLOCK_MALICIOUS_MCP_TOOL':'NO_PATTERN_DETECTED',
+      coverage:'tool name, description and supplied schema text heuristics; tool execution and schema behavior not attested' };
   } else if (path === '/v1/security/agent-memory-guard') {
     const inspection = sanitizeContent(text(raw, 'memory_chunk', 'content'), true);
     result = { session_id: raw.session_id ?? null, safe_to_persist: inspection.injection_detected ? false : null, sleeper_trigger_detected: inspection.injection_detected,

@@ -109,7 +109,7 @@ const client = new x402Client();
 client.register("exact", new ExactEvmScheme(account));
 
 // Client-side pre-signing assertions: protect agent funds before signing
-const EXPECTED_MERCHANT = "0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1".toLowerCase();
+const EXPECTED_MERCHANT = "0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6".toLowerCase();
 const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913".toLowerCase();
 const MAX_AMOUNT = 10000n; // 0.010 USDC
 
@@ -294,7 +294,7 @@ For autonomous AI agents and trading bots requiring live web scraping through Cl
 
 | Setting | Value |
 | --- | --- |
-| Merchant recipient | `0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1` |
+| Merchant recipient | `0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6` |
 | Base chain ID | `8453` |
 | x402 v2 network | `eip155:8453` |
 | Base USDC asset | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
@@ -320,7 +320,7 @@ Create an ignored local `.env.local` with server configuration. Enter CDP creden
 CDP_API_KEY_ID=<your CDP key ID>
 CDP_API_KEY_SECRET=<your CDP secret>
 PUBLIC_URL=https://canaryguard-402.onrender.com
-X402_RECIPIENT_ADDRESS=0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1
+X402_RECIPIENT_ADDRESS=0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6
 NETWORK=base
 PORT=4020
 ```

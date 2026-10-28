@@ -12,10 +12,12 @@ import {
   DESCRIPTION,
   ENDPOINT_MAP,
   ENDPOINT_SPECS,
+  MCP_ENDPOINT_SPECS,
   type EndpointSpec,
   Input,
   inputJsonSchema,
   NETWORK,
+  isRetiredBaseRecipient,
   sanitizeResultJsonSchema,
   SERVICE_VERSION,
   AGENT_CONTINUATION,
@@ -28,12 +30,14 @@ import {
 import { sanitizeContent } from './sanitize.js';
 import { receiptRetries } from './retries.js';
 import { executeEndpoint, ExecutionError } from './execution.js';
+import type { PaymentJournal } from './payment_journal.js';
 import { solanaPaymentGate } from './solana_payment.js';
 import { mcpHandler } from './mcp.js';
 import { sendRevenueAlert } from './alerts.js';
 import { recordDeliveryMiddleware, getRecentDeliveries, getPaidDeliveries } from './delivery_recorder.js';
 
-export async function createApp(payments: Awaited<ReturnType<typeof createPayments>>) {
+export async function createApp(payments: Awaited<ReturnType<typeof createPayments>>, options: { execute?:typeof executeEndpoint; journal?:PaymentJournal } = {}) {
+  const execute=options.execute || executeEndpoint;
   const app = express();
   app.disable('x-powered-by');
   app.set('case sensitive routing', true);
@@ -228,7 +232,7 @@ export async function createApp(payments: Awaited<ReturnType<typeof createPaymen
       agent_id: 335687,
       network: 'eip155:8453',
       erc8004_contract: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
-      operator_vault: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
+      operator_vault: payments.config.payTo,
       open_roles: 'Autonomous AI Agents & Specialized MCP Oracles',
       github: 'https://github.com/ak10082247-max',
       documentation: '/openapi.json',
@@ -588,9 +592,9 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
     };
   }
 
-  const canaryMcpTools = ENDPOINT_SPECS.map(spec => ({
+  const canaryMcpTools = MCP_ENDPOINT_SPECS.map(spec => ({
     name: spec.operationId === 'sanitizeContent' ? 'canary_sanitize' : spec.operationId,
-    description: `${spec.description} Price: ${spec.priceUsd} USDC on Base.`,
+    description: `${spec.description} Price: ${spec.priceUsd} USDC on Base or Solana.`,
     inputSchema: spec.inputSchema || inputJsonSchema,
     outputSchema: buildCanaryOutputSchema(spec),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
@@ -774,10 +778,30 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
     if (!req.headers['payment-signature'] && req.headers['x-payment']) {
       req.headers['payment-signature'] = req.headers['x-payment'];
     }
+    // HEAD cannot deliver an analysis body. Keep unsigned discovery probes,
+    // but never settle a payment for a response whose output HTTP suppresses.
+    if (req.method === 'HEAD' && ENDPOINT_MAP.has(req.path) && req.headers['payment-signature']) {
+      res.status(405).set('Allow','GET, POST').json({error:'paid_method_not_supported',charged:false});
+      return;
+    }
     next();
   });
 
-  app.use(receiptRetries());
+  app.use(options.journal ? receiptRetries(undefined,undefined,undefined,options.journal) : receiptRetries());
+  // Completed legacy results are recovered above with proven buyer ownership.
+  // A fresh authorization to the retired recipient must never reach a settler.
+  app.use((req,res,next)=>{
+    if(ENDPOINT_MAP.has(req.path)) {
+      const header=req.get('PAYMENT-SIGNATURE');
+      if(header)try {
+        const payment=JSON.parse(header.trim().startsWith('{')?header:Buffer.from(header,'base64').toString('utf8'));
+        if(payment.accepted?.network===NETWORK&&(isRetiredBaseRecipient(payment.accepted?.payTo)||isRetiredBaseRecipient(payment.payload?.authorization?.to))) {
+          res.status(402).json({error:'retired_recipient_authorization',charged:false});return;
+        }
+      } catch { /* The normal verifier rejects malformed proofs. */ }
+    }
+    next();
+  });
 
   // ============================================================================
   // RFC 8594 RETIREMENT: 6 DUPLICATE NANSEN ROUTES PERMANENTLY RETIRED ON CANARYGUARD
@@ -816,7 +840,7 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
   });
 
   // Solana uses the same real executor, with acquisition before settlement.
-  app.use(solanaPaymentGate(payments.config.publicUrl));
+  app.use(solanaPaymentGate(payments.config.publicUrl,fetch,execute));
 
   app.use((req, res, next) => {
     if (res.getHeader('PAYMENT-RESPONSE')) return next();
@@ -840,13 +864,16 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
       }
       try {
         res.locals.claimPaymentOperation?.();
-        const result = await executeEndpoint(spec.path, input);
+        const result = await execute(spec.path, input);
         res.locals.sanitized = true;
         res.locals.acquiredResult = result;
         res.locals.paymentJournal?.prepare(res.locals.paymentOperationId,result);
         res.json(result);
       } catch (error) {
-        if (error instanceof ExecutionError) { res.status(error.status).json({ error: error.code, message: error.message, charged: false }); return; }
+        if (error instanceof ExecutionError) {
+          if(res.locals.paymentOperationClaimed) res.locals.paymentJournal?.releaseUnacquired(res.locals.paymentOperationId);
+          res.status(error.status).json({ error: error.code, message: error.message, charged: false }); return;
+        }
         res.status(503).json({ error: 'analysis_unavailable', charged: false });
       }
     });
@@ -863,7 +890,7 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
   app.post('/v1/internal/cdp-settle', (_req, res) => res.status(410).json({ error: 'payment_only_relay_removed', message: 'Settle through the actual purchased endpoint' }));
 
   // MCP Handler (mounted on both /mcp and root / for full scanner compatibility)
-  const handler = await mcpHandler(payments.server, payments.config.publicUrl, payments.config.payTo);
+  const handler = await mcpHandler(payments.server, payments.config.publicUrl, payments.config.payTo,fetch,execute,options.journal);
 
   const mcpJsonRpcInterceptor = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     // Prevent 406 on streamable HTTP if Accept header is missing or wildcard

@@ -1,7 +1,7 @@
 // Recover the original authorization and request after a lost response.
 const NETWORK = 'eip155:8453';
 const ASSET = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const MERCHANT = '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1';
+const MERCHANT = '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6';
 const STORAGE_KEY = 'canary_x402_pending_v1';
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const encode = value => btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(value))));

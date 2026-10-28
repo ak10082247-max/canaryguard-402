@@ -4,7 +4,10 @@ import { z } from 'zod';
 export const NETWORK = 'eip155:8453' as const;
 export const SERVICE_VERSION = '1.3.0';
 export const ASSET = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-export const RECIPIENT = '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1';
+export const RECIPIENT = '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6';
+export function isRetiredBaseRecipient(value:unknown) {
+  return typeof value==='string'&&value.toLowerCase()==='0x73279fa4bada7cac888c62cda4f5c8104765f6f1';
+}
 export const DESCRIPTION = 'Deterministic prompt-injection firewall, Base token auditor, and enterprise on-chain intelligence suite for autonomous AI agents.';
 export const TOOL_DESCRIPTION = 'Call this security tool before placing untrusted text, scraped web content, or tool outputs into your context window. Detects and scrubs prompt injection and malicious wallet transfer exploits. Cost: 0.010 USDC on Base. Deterministic rules have incomplete coverage; results do not guarantee safety.';
 
@@ -119,7 +122,11 @@ export function configuration(env = process.env) {
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== '/') {
     throw new Error('PUBLIC_URL must be an HTTPS origin');
   }
-  const payTo = env.X402_RECIPIENT_ADDRESS || RECIPIENT;
+  const configuredPayTo = env.X402_RECIPIENT_ADDRESS || RECIPIENT;
+  // Existing Render environments may still name the retired public recipient.
+  // Migrate that exact obsolete setting to the replacement authorized by owner;
+  // it must never override the replacement default after the wallet incident.
+  const payTo = isRetiredBaseRecipient(configuredPayTo) ? RECIPIENT : configuredPayTo;
   if (!isAddress(payTo)) throw new Error('Invalid recipient');
   if (env.NETWORK && !['base', NETWORK].includes(env.NETWORK)) throw new Error('Only Base mainnet is supported');
   return { publicUrl: parsed.origin, payTo: getAddress(payTo) };
@@ -237,7 +244,7 @@ export const PRIMARY_15_SPECS: EndpointSpec[] = [
     amountMicro: '20000',
     priceUsd: '0.02',
     tags: ['AI Security', 'Wallet Safety'],
-    inputExample: { wallet_address: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1', chain_id: 8453 },
+    inputExample: { wallet_address: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6', chain_id: 8453 },
     inputSchema: {
       type: 'object',
       properties: {
@@ -247,7 +254,7 @@ export const PRIMARY_15_SPECS: EndpointSpec[] = [
       required: ['wallet_address'],
     },
     outputExample: {
-      wallet_address: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
+      wallet_address: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6',
       drainer_detected: false,
       permit2_risk: 'NONE',
       ofac_sanctioned: false,
@@ -270,7 +277,7 @@ export const PRIMARY_15_SPECS: EndpointSpec[] = [
         tool_description: { type: 'string' },
         input_schema: { type: 'object' },
       },
-      required: ['tool_name'],
+      required: ['tool_name','tool_description'],
     },
     outputExample: {
       tool_name: 'canary_sanitize',
@@ -422,7 +429,7 @@ export const PRIMARY_15_SPECS: EndpointSpec[] = [
     tags: ['Enterprise Audit', 'AI Security', 'DeFi Risk'],
     inputExample: {
       target_address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      counterparty_wallet: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
+      counterparty_wallet: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6',
       chain_id: 8453,
     },
     inputSchema: {
@@ -450,10 +457,10 @@ export const PRIMARY_15_SPECS: EndpointSpec[] = [
     amountMicro: '20000',
     priceUsd: '0.020',
     tags: ['Agent Verification', 'Attestation', 'x402'],
-    inputExample: { agent_wallet: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1', service_domain: 'canaryguard-402.onrender.com', message: 'Obtain the current statement from /v1/verify/agent-attestation/challenge and sign it with the claimed wallet', signature: '0x<owner EIP-191 signature>', signed_at: 0 },
+    inputExample: { agent_wallet: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6', service_domain: 'canaryguard-402.onrender.com', message: 'Obtain the current statement from /v1/verify/agent-attestation/challenge and sign it with the claimed wallet', signature: '0x<owner EIP-191 signature>', signed_at: 0 },
     inputSchema: {"type": "object", "properties": {"agent_wallet": {"type": "string"}, "service_domain": {"type": "string"}, "message": {"type": "string"}, "signature": {"type": "string"}, "signed_at": {"type": "integer"}}, "required": ["agent_wallet", "service_domain", "message", "signature", "signed_at"]},
     outputExample: {
-      agent_wallet: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
+      agent_wallet: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6',
       verified: true,
       trust_score: 99,
       attestation_tier: 'INSTITUTIONAL_X402_VERIFIED',
@@ -543,7 +550,7 @@ export const VEXTORIUM_COMPAT_SPECS: EndpointSpec[] = [
     amountMicro: '10000',
     priceUsd: '0.010',
     tags: ['AI Security', 'Wallet Intelligence'],
-    inputExample: { wallet_address: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1', chain_id: 8453 },
+    inputExample: { wallet_address: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6', chain_id: 8453 },
     inputSchema: {
       type: 'object',
       properties: {
@@ -553,7 +560,7 @@ export const VEXTORIUM_COMPAT_SPECS: EndpointSpec[] = [
       required: ['wallet_address'],
     },
     outputExample: {
-      wallet_address: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
+      wallet_address: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6',
       chain_id: 8453,
       risk_level: 'LOW',
       risk_score: 0.02,
@@ -593,14 +600,14 @@ export const VEXTORIUM_COMPAT_SPECS: EndpointSpec[] = [
     amountMicro: '10000',
     priceUsd: '0.010',
     tags: ['Compliance', 'AI Security'],
-    inputExample: { address: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1' },
+    inputExample: { address: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6' },
     inputSchema: {
       type: 'object',
       properties: { address: { type: 'string', description: 'EVM or Solana wallet address to screen' } },
       required: ['address'],
     },
     outputExample: {
-      address: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
+      address: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6',
       sanctioned: false,
       compliance_status: 'APPROVED',
     },
@@ -761,8 +768,8 @@ export const VEXTORIUM_COMPAT_SPECS: EndpointSpec[] = [
     inputExample: { tool_name: 'canary_sanitize', tool_description: 'Deterministic prompt-injection firewall' },
     inputSchema: {
       type: 'object',
-      properties: { tool_name: { type: 'string' } },
-      required: ['tool_name'],
+      properties: { tool_name: { type: 'string' },tool_description:{type:'string'},input_schema:{type:'object'} },
+      required: ['tool_name','tool_description'],
     },
     outputExample: { verdict: 'CLEAN_MCP_TOOL' },
   },
@@ -770,7 +777,7 @@ export const VEXTORIUM_COMPAT_SPECS: EndpointSpec[] = [
 
 export const SOLANA_NETWORK = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' as const;
 export const SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' as const;
-export const SOLANA_RECIPIENT = '3tQ4GthjUMqNsyrb1rZMocMHoNewFQWjDUvHZqWeYuCN' as const;
+export const SOLANA_RECIPIENT = '9wuMysgXwNhtQeqJgGByAiMYc4EjzZ5wUSmnjrrt3ffh' as const;
 export const SOLANA_FEE_PAYER = 'CjNFTjvBhbJJd2B5ePPMHRLx1ELZpa8dwQgGL727eKww' as const;
 export const PAYAI_FACILITATOR = 'https://facilitator.payai.network' as const;
 
@@ -892,14 +899,14 @@ export const NANSEN_COMPAT_SPECS: EndpointSpec[] = [
     amountMicro: '10000',
     priceUsd: '0.010',
     tags: ['Wallet Intelligence', 'Profiler', 'Solana', 'Base'],
-    inputExample: { address: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1' },
+    inputExample: { address: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6' },
     inputSchema: {
       type: 'object',
       properties: { address: { type: 'string' } },
     },
     outputExample: {
       status: 'success',
-      address: '0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1',
+      address: '0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6',
       total_value_usd: 148920.50,
       sanctioned: false,
     },
@@ -916,4 +923,9 @@ export const ENDPOINT_SPECS: EndpointSpec[] = [
 export const ENDPOINT_MAP = new Map<string, EndpointSpec>(
   ENDPOINT_SPECS.map(spec => [spec.path, spec])
 );
+
+// HTTP retains these canonical redirects for old clients; an MCP tool cannot
+// transparently redirect its payment authorization to a different merchant.
+export const MCP_ENDPOINT_SPECS = ENDPOINT_SPECS.filter(spec =>
+  !['/v1/polymarket-odds-pulse', '/v1/alpha/polymarket-verified-odds'].includes(spec.path));
 

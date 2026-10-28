@@ -6,7 +6,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: X402_RECIPIENT_ADDRESS
-        value: 0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1
+        value: 0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6
       - key: NETWORK
         value: base
       - key: PUBLIC_URL
