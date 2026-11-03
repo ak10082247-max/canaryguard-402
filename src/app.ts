@@ -843,6 +843,16 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
   app.use(solanaPaymentGate(payments.config.publicUrl,fetch,execute));
 
   app.use((req, res, next) => {
+    // RapidAPI Gateway & Direct API Key Bypass
+    const rapidSecret = req.headers['x-rapidapi-proxy-secret'];
+    const apiKey = req.headers['x-api-key'] || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
+    const configuredSecret = process.env.RAPIDAPI_PROXY_SECRET || 'rapidapi-secret-kurox-2026';
+    const configuredApiKey = process.env.SERVICE_API_KEY || 'kurox-master-key-2026';
+    if ((rapidSecret && rapidSecret === configuredSecret) || (apiKey && apiKey === configuredApiKey)) {
+      res.setHeader('X-RapidAPI-Bypass', 'active');
+      return next();
+    }
+
     if (res.getHeader('PAYMENT-RESPONSE')) return next();
     return payments.gate(req, res, next).catch(() => {
       if (!res.headersSent) res.status(503).json({ error: 'payment_service_unavailable' });
