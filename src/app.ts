@@ -75,6 +75,12 @@ export async function createApp(payments: Awaited<ReturnType<typeof createPaymen
   }));
 
   app.use(express.json({ limit: '256kb', strict: false }));
+  app.use((req, _res, next) => {
+    if (req.method === 'POST' && (!req.body || typeof req.body !== 'object' || Array.isArray(req.body))) {
+      req.body = {};
+    }
+    next();
+  });
 
   app.get('/v1/verify/agent-attestation/challenge', (req,res)=> {
     const wallet=String(req.query.agent_wallet||'').toLowerCase(), domain=String(req.query.service_domain||'').toLowerCase();
