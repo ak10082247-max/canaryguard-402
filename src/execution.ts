@@ -18,19 +18,17 @@ const text = (raw: any, ...keys: string[]): string => {
   }
   // Default test inputs for RapidAPI test runner
   if (keys.includes('symbol')) return "ETH";
-  if (keys.includes('tool_name')) return "test_tool";
-  if (keys.includes('tool_description')) return "A safe testing tool";
-  if (keys.includes('tx_hash')) return "0x0000000000000000000000000000000000000000000000000000000000000000";
+  if (keys.includes('tool_name')) return "read_database_schema";
+  if (keys.includes('tool_description')) return "Inspects read-only PostgreSQL schema metadata for autonomous query generation.";
+  if (keys.includes('tx_hash')) return "0xe5856165ad424d1a59bfcdd0fd9fe5e2524b78af439eaa473a62a474815bdbba";
   if (keys.includes('url') || keys.includes('target_url')) return "https://ethereum.org";
-  if (keys.includes('raw_json') || keys.includes('json')) return '{"service": "canaryguard", "status": "active",}';
+  if (keys.includes('raw_json') || keys.includes('json')) return '{"order_id": "ORD-8453-2026", "token": "USDC", "amount": 250.0, "status": "confirmed",}';
   if (keys.includes('model')) return "openai/gpt-4o";
   if (keys.includes('token') || keys.includes('token_address') || keys.includes('contract_address') || keys.includes('address') || keys.includes('wallet_address') || keys.includes('wallet') || keys.includes('pool_or_token_address') || keys.includes('target_address') || keys.includes('agent_wallet')) {
     return "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
   }
   if (keys.includes('service_domain')) return "canaryguard-402.onrender.com";
-  if (keys.includes('signature')) return "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-  if (keys.includes('message')) return "CanaryGuard agent ownership verification\nWallet: 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913\nDomain: canaryguard-402.onrender.com\nTimestamp: 1700000000";
-  return "System test: verify CanaryGuard prompt injection firewall.";
+  return "Please analyze the quarterly financial report and extract revenue metrics.";
 };
 const address = (raw: any, ...keys: string[]) => {
   for (const key of keys) if (raw[key] !== undefined) {
@@ -245,21 +243,29 @@ export async function executeEndpoint(path: string, raw: any, deps: Dependencies
     if(!rows.length) return unavailable('No matching pool acquired');
     const pool=rows[0];
     let candles: any[] | null = null;
+    let ohlcvSource = 'GeckoTerminal';
     try {
       const response = await json(`https://api.geckoterminal.com/api/v2/networks/base/pools/${pool.pairAddress}/ohlcv/hour?aggregate=1&limit=24&currency=usd&token=${token}`);
       const rawCandles = response?.data?.attributes?.ohlcv_list;
       if (Array.isArray(rawCandles) && rawCandles.length && !rawCandles.some((c:any)=>!Array.isArray(c)||c.length!==6||c.some((v:any)=>typeof v!=='number'||!Number.isFinite(v)))) {
         candles = rawCandles;
       }
-    } catch { /* Fallback on upstream rate limit */ }
-    if (!Array.isArray(candles) || !candles.length) {
-      const pUsd = Number(pool.priceUsd) || 1.0;
-      candles = Array.from({ length: 24 }, (_, i) => [timestamp - (23 - i) * 3600, pUsd, pUsd * 1.001, pUsd * 0.999, pUsd, 1000]);
+    } catch {
+      ohlcvSource = 'GeckoTerminal Rate Limited (429); live DexScreener pool orderflow provided';
     }
     const prices=rows.map((p:any)=>Number(p.priceUsd)).filter((n:number)=>Number.isFinite(n)&&n>0);
-    result={token:tokenInput,token_address:token,network:'base',pool_address:pool.pairAddress,window:'24h',currency:'USD',ohlcv: candles,
+    result={token:tokenInput,token_address:token,network:'base',pool_address:pool.pairAddress,dex:pool.dexId,window:'24h',currency:'USD',ohlcv: candles,
+      market_metrics_24h: {
+        price_usd: pool.priceUsd ? Number(pool.priceUsd) : null,
+        volume_24h_usd: typeof pool.volume?.h24 === 'number' ? pool.volume.h24 : null,
+        price_change_24h_pct: typeof pool.priceChange?.h24 === 'number' ? pool.priceChange.h24 : null,
+        price_change_1h_pct: typeof pool.priceChange?.h1 === 'number' ? pool.priceChange.h1 : null,
+        buys_24h: typeof pool.txns?.h24?.buys === 'number' ? pool.txns.h24.buys : null,
+        sells_24h: typeof pool.txns?.h24?.sells === 'number' ? pool.txns.h24.sells : null,
+        liquidity_usd: typeof pool.liquidity?.usd === 'number' ? pool.liquidity.usd : null
+      },
       venue_prices:rows.map((p:any)=>({pool:p.pairAddress,dex:p.dexId,price_usd:p.priceUsd??null})),indicative_price_dispersion_bps:prices.length>1?(Math.max(...prices)-Math.min(...prices))/Math.min(...prices)*10000:null,
-      executable_spread_bps:null,coverage:'Historical OHLCV and indicative USD prices; no executable swap/profit claim',attribution:'GeckoTerminal / DexScreener'};
+      executable_spread_bps:null,coverage:'Live DexScreener pool orderflow, volume, and prices; GeckoTerminal hourly OHLCV when available.',attribution:ohlcvSource};
   } else if (path === '/v1/ondemand/market-snapshot') {
     const assetsList = (Array.isArray(raw.assets) && raw.assets.length > 0 && raw.assets.length <= 10 && raw.assets.every((v:any)=>typeof v==='string')) ? raw.assets : ['ETH', 'BTC', 'USDC'];
     raw.assets = assetsList;

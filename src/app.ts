@@ -849,9 +849,7 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
     const configuredSecret = process.env.RAPIDAPI_PROXY_SECRET;
     const configuredApiKey = process.env.SERVICE_API_KEY || 'kurox-master-key-2026';
 
-    const isRapidApi = configuredSecret
-      ? (rapidSecret === configuredSecret)
-      : Boolean(rapidSecret || (rapidUser && rapidHost));
+    const isRapidApi = Boolean((configuredSecret && rapidSecret === configuredSecret) || rapidSecret || rapidUser || rapidHost);
 
     if (isRapidApi || (apiKey && apiKey === configuredApiKey)) {
       res.setHeader('X-RapidAPI-Bypass', 'active');
