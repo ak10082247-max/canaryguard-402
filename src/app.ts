@@ -834,16 +834,7 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
     '/api/v1/profiler/address/current-balance',
   ], handleRetiredNansenRoute);
 
-  // Canonical Redirect for Prediction Market routes to StealthGuard-402
-  // Routes high-volume Polymarket queries directly to StealthGuard's live CLOB engine
-  app.all([
-    '/v1/polymarket-odds-pulse',
-    '/v1/alpha/polymarket-verified-odds',
-  ], (req, res) => {
-    const targetUrl = 'https://stealthguard-402.onrender.com/v1/polymarket_alpha_divergence';
-    res.setHeader('Location', targetUrl);
-    return res.redirect(307, targetUrl);
-  });
+// Polymarket routes handled directly by CanaryGuard executor
 
   // Solana uses the same real executor, with acquisition before settlement.
   app.use(solanaPaymentGate(payments.config.publicUrl,fetch,execute));
