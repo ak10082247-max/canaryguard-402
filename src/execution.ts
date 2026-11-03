@@ -29,10 +29,7 @@ const text = (raw: any, ...keys: string[]): string => {
   }
   if (keys.includes('service_domain')) return "canaryguard-402.onrender.com";
   if (keys.includes('signature')) return "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-  if (keys.includes('message')) return "CanaryGuard agent ownership verification
-Wallet: 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913
-Domain: canaryguard-402.onrender.com
-Timestamp: 1700000000";
+  if (keys.includes('message')) return "CanaryGuard agent ownership verification\nWallet: 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913\nDomain: canaryguard-402.onrender.com\nTimestamp: 1700000000";
   return "System test: verify CanaryGuard prompt injection firewall.";
 };
 const address = (raw: any, ...keys: string[]) => {
@@ -137,8 +134,8 @@ export async function executeEndpoint(path: string, raw: any, deps: Dependencies
     if (inspection.injection_detected) result = { repaired: input !== clean, valid_json: false, injection_detected: true, threats_neutralized: inspection.threats_neutralized, parsed: null, repaired_json_string: '', verdict: 'BLOCKED' };
     else result = { repaired: input !== clean, valid_json: true, injection_detected: false, threats_neutralized: [], parsed, repaired_json_string: JSON.stringify(parsed) };
   } else if (['/v1/eip712-signature-audit', '/v1/security/eip712-signature-auditor'].includes(path)) {
-    let payload = raw.typed_data ?? raw;
-    if (!payload || !payload.domain || !payload.types || !payload.message || typeof payload.primaryType !== 'string') {
+    let payload = raw.typed_data;
+    if (payload === undefined && Object.keys(raw).length === 0) {
       payload = {
         domain: { name: "USD Coin", version: "2", chainId: 8453, verifyingContract: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
         types: {
@@ -148,6 +145,8 @@ export async function executeEndpoint(path: string, raw: any, deps: Dependencies
         primaryType: "Transfer",
         message: { to: "0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6", value: "10000" }
       };
+    } else if (!payload || typeof payload !== 'object' || !payload.domain || !payload.types || !payload.message || typeof payload.primaryType !== 'string') {
+      invalid('typed_data must be a valid EIP-712 object');
     }
     let digest: string;
     try { digest = hashTypedData(payload); } catch { return invalid('Invalid EIP-712 typed data'); }
