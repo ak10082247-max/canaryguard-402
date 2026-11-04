@@ -763,6 +763,151 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
   app.get('/v1/sanitize/preview', handlePreview);
   app.post('/v1/sanitize/preview', handlePreview);
 
+  // ============================================================================
+  // OPENAI & DEEPSEEK DROP-IN IN-FLIGHT FIREWALL PROXY
+  // Route: POST /v1/chat/completions & GET /v1/models
+  // Allows any developer or agent to set base_url="https://canaryguard-402.onrender.com/v1"
+  // ============================================================================
+  app.get(['/v1/models', '/models'], (_req, res) => {
+    res.json({
+      object: 'list',
+      data: [
+        { id: 'canaryguard-firewall', object: 'model', created: 1700000000, owned_by: 'canaryguard' },
+        { id: 'gpt-4o', object: 'model', created: 1700000000, owned_by: 'openai' },
+        { id: 'gpt-4o-mini', object: 'model', created: 1700000000, owned_by: 'openai' },
+        { id: 'deepseek-chat', object: 'model', created: 1700000000, owned_by: 'deepseek' },
+        { id: 'claude-3-5-sonnet', object: 'model', created: 1700000000, owned_by: 'anthropic' }
+      ]
+    });
+  });
+
+  app.post(['/v1/chat/completions', '/chat/completions'], async (req, res) => {
+    try {
+      const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+      const model = req.body?.model || 'canaryguard-firewall';
+      const strict = req.body?.strict_mode !== false;
+
+      let combinedPrompt = '';
+      for (const m of messages) {
+        if (typeof m.content === 'string') {
+          combinedPrompt += `\n[${m.role || 'user'}]: ${m.content}`;
+        } else if (Array.isArray(m.content)) {
+          for (const part of m.content) {
+            if (part?.type === 'text' && typeof part.text === 'string') {
+              combinedPrompt += `\n[${m.role || 'user'}]: ${part.text}`;
+            }
+          }
+        }
+      }
+
+      if (!combinedPrompt.trim()) {
+        combinedPrompt = (req.body?.prompt || req.body?.content || '').toString();
+      }
+
+      const scan = sanitizeContent(combinedPrompt, strict);
+      const now = Math.floor(Date.now() / 1000);
+      const completionId = `chatcmpl-cg-${Date.now().toString(36)}`;
+
+      if (scan.status === 'blocked' || (scan.threats_neutralized && scan.threats_neutralized.length > 0) || (scan.threats_neutralized && scan.threats_neutralized.length > 0)) {
+        res.status(200).json({
+          id: completionId,
+          object: 'chat.completion',
+          created: now,
+          model: model,
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: `[CanaryGuard Security Alert] Malicious prompt injection or jailbreak detected and neutralized. Neutralized vectors: ${(scan.threats_neutralized || []).join(', ')}. Execution halted.`
+              },
+              finish_reason: 'content_filter'
+            }
+          ],
+          usage: {
+            prompt_tokens: Math.max(1, Math.ceil(combinedPrompt.length / 4)),
+            completion_tokens: 25,
+            total_tokens: Math.max(1, Math.ceil(combinedPrompt.length / 4)) + 25
+          },
+          canaryguard_firewall: {
+            status: scan.status,
+            threats_neutralized: scan.threats_neutralized,
+            risk_score: scan.risk_score || 0.95,
+            blocked: true
+          }
+        });
+        return;
+      }
+
+      const authHeader = req.headers.authorization;
+      const upstreamApiKey = (authHeader && authHeader.startsWith('Bearer ') && !authHeader.includes('canaryguard') && !authHeader.includes('kurox'))
+        ? authHeader.slice(7).trim()
+        : process.env.UPSTREAM_OPENAI_API_KEY;
+
+      if (upstreamApiKey) {
+        const upstreamUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions';
+        const forwardResp = await fetch(upstreamUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${upstreamApiKey}`
+          },
+          body: JSON.stringify({
+            ...req.body,
+            stream: false
+          })
+        });
+
+        if (forwardResp.ok) {
+          const upstreamJson: any = await forwardResp.json();
+          const assistantReply = upstreamJson.choices?.[0]?.message?.content || '';
+          const outputScan = sanitizeContent(assistantReply, false);
+          if (outputScan.threats_neutralized?.length) {
+            upstreamJson.choices[0].message.content = outputScan.sanitized_content;
+            upstreamJson.canaryguard_firewall = { output_sanitized: true, threats: outputScan.threats_neutralized };
+          }
+          res.json(upstreamJson);
+          return;
+        }
+      }
+
+      res.json({
+        id: completionId,
+        object: 'chat.completion',
+        created: now,
+        model: model,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: scan.sanitized_content || 'Prompt verified clean and safe by CanaryGuard deterministic firewall.'
+            },
+            finish_reason: 'stop'
+          }
+        ],
+        usage: {
+          prompt_tokens: Math.max(1, Math.ceil(combinedPrompt.length / 4)),
+          completion_tokens: 15,
+          total_tokens: Math.max(1, Math.ceil(combinedPrompt.length / 4)) + 15
+        },
+        canaryguard_firewall: {
+          status: 'clean',
+          risk_score: 0.0,
+          verified: true
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        error: {
+          message: err?.message || 'CanaryGuard proxy error',
+          type: 'canaryguard_internal_error',
+          code: 500
+        }
+      });
+    }
+  });
+
   app.use(rateLimit({
     windowMs: 60000,
     limit: 240,
