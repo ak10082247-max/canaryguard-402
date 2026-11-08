@@ -54,7 +54,7 @@ export class CanaryGuardClient {
       registerExactEvmScheme(client, { signer: account });
 
       // Enforce client-side safety guardrails before signing payments
-      const expectedMerchant = "0x73279fa4bada7cac888c62cda4f5c8104765f6f1";
+      const expectedMerchant = "0x80e0ae84679b7f11be171daadd492fbecf628cd6";
       const baseUsdc = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
       const maxPerCallMicroUsdc = 10000n; // 0.010 USDC
 

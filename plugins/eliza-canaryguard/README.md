@@ -55,5 +55,5 @@ if (result.injection_detected) {
 
 - **Protocol**: x402 v2 on Base Mainnet (`eip155:8453`)
 - **Cost**: 0.003 USDC per sanitization
-- **Merchant Address**: `0x73279fa4BadA7CAC888c62CDa4f5c8104765f6f1`
+- **Merchant Address**: `0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6`
 - **Latency**: <5ms deterministic inspection
