@@ -1,6 +1,8 @@
 # CanaryGuard 402
 
 [![Base Mainnet](https://img.shields.io/badge/Network-Base%20Mainnet%20(8453)-blue)](https://base.org)
+[![Solana Mainnet](https://img.shields.io/badge/Network-Solana%20Mainnet-14F195?logo=solana&logoColor=white)](https://solana.com)
+[![Apify Store](https://img.shields.io/badge/Apify%20Store-Pay--Per--Event-00A65A?logo=apify&logoColor=white)](https://apify.com/kuroxreal/canaryguard-402)
 [![MCPize](https://img.shields.io/badge/MCPize-Subscribe%20from%20%249.99%2Fmo-8A2BE2?logo=stripe&logoColor=white)](https://mcpize.com)
 [![x402 Protocol](https://img.shields.io/badge/Protocol-x402%20v2-green)](https://x402.org)
 [![Coinbase CDP Bazaar](https://img.shields.io/badge/CDP%20Bazaar-Active%20%26%20Indexed-purple)](https://docs.cdp.coinbase.com/x402)
@@ -9,10 +11,11 @@
 [![Client SDK](https://img.shields.io/npm/v/@kurox_real/canaryguard-client?label=TS%20SDK&color=teal)](https://www.npmjs.com/package/@kurox_real/canaryguard-client)
 [![Glama](https://glama.ai/mcp/servers/ak10082247-max/canaryguard-402/badges/score.svg)](https://glama.ai/mcp/servers/ak10082247-max/canaryguard-402)
 
-Deterministic prompt-injection firewall and honeypot scrubber for autonomous AI agents. `POST /v1/sanitize` costs **0.010 USDC** on Base mainnet through the Coinbase CDP x402 facilitator. A free public evaluation endpoint is available at `POST /v1/sanitize/preview`. A remote MCP tool exposes the same inspection with payment per tool call, and flat-rate monthly fiat subscriptions are supported via MCPize.
+Deterministic prompt-injection firewall and honeypot scrubber for autonomous AI agents. `POST /v1/sanitize` costs **0.010 USDC** on Base mainnet and Solana mainnet through x402 V2 facilitators. A free public evaluation endpoint is available at `POST /v1/sanitize/preview`. A remote MCP tool (`canary_sanitize`) exposes the same inspection with payment per tool call, Apify Pay-Per-Event is live at `$0.003/check`, and flat-rate monthly fiat subscriptions are supported via MCPize.
 
 - 🌐 **Live Web Playground**: [canaryguard-402.onrender.com](https://canaryguard-402.onrender.com)
 - 🔍 **Free Evaluation Preview**: [canaryguard-402.onrender.com/v1/sanitize/preview](https://canaryguard-402.onrender.com/v1/sanitize/preview)
+- 🐝 **Apify Store Actor**: [apify.com/kuroxreal/canaryguard-402](https://apify.com/kuroxreal/canaryguard-402)
 - 🤖 **Agent Discovery**: [canaryguard-402.onrender.com/llms.txt](https://canaryguard-402.onrender.com/llms.txt)
 - 📦 **NPM Packages**:
   - `@kurox_real/plugin-canaryguard` — Official ElizaOS Plugin
@@ -294,12 +297,15 @@ For autonomous AI agents and trading bots requiring live web scraping through Cl
 
 | Setting | Value |
 | --- | --- |
-| Merchant recipient | `0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6` |
-| Base chain ID | `8453` |
-| x402 v2 network | `eip155:8453` |
+| Merchant recipient (Base) | `0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6` |
+| Merchant owner (Solana) | `9wuMysgXwNhtQeqJgGByAiMYc4EjzZ5wUSmnjrrt3ffh` |
+| Merchant USDC ATA (Solana) | `DD3A7jaXFeHcif9eYj6Vhomuxypat5Yxi8ow6wxz27yL` |
+| Supported Networks | Base Mainnet (`eip155:8453`) & Solana (`solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`) |
 | Base USDC asset | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| Solana USDC mint | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
 | Amount | `10000` micro-USDC = `0.010` USDC |
-| Intended public origin | `https://canaryguard-402.onrender.com` |
+| Public Origin | `https://canaryguard-402.onrender.com` |
+| Apify PPE Pricing | `$0.003 USD / check` (`https://apify.com/kuroxreal/canaryguard-402`) |
 | GitHub repository | `https://github.com/ak10082247-max/canaryguard-402` |
 
 These addresses and URLs are public configuration. A URL in this README does not establish that deployment or registry submission has succeeded. Verify health, payment challenges, settlement and catalog visibility separately.
