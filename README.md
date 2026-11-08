@@ -274,22 +274,23 @@ const result = await client.sanitize("Untrusted scraped text or user prompt", { 
 
 ---
 
-## ⚡ Upstream Ecosystem Service: StealthGuard-402
+## ⚡ Sister Flagship Ecosystem Services
 
-For autonomous AI agents and trading bots requiring live web scraping through Cloudflare Turnstile, Polymarket orderbook alpha, or on-chain pre-trade agent token gating, CanaryGuard powers the deterministic security engine of **[StealthGuard-402](https://github.com/ak10082247-max/stealthguard-402)**:
+CanaryGuard 402 is part of the consolidated Kurox AI & On-Chain Security Suite, working alongside our active live flagships:
 
-- 🌐 **Live Service**: [https://stealthguard-402.onrender.com](https://stealthguard-402.onrender.com)
-- 🤖 **x402 Manifest**: `https://stealthguard-402.onrender.com/.well-known/x402`
-- 📡 **MCP Remote**: `https://stealthguard-402.onrender.com/mcp`
-- 💻 **Zero-Config Stdio MCP**: `npx -y stealthguard-mcp` or `uvx stealthguard-mcp`
-- 🐝 **Apify Store Actor**: [kuroxreal/stealthguard-402](https://apify.com/kuroxreal/stealthguard-402)
+### 1. RugShield 402 — Base DEX Token Safety & Honeypot Scanner
+Autonomous pre-trade EVM calldata simulation and fee-on-transfer tax audit engine for Base Mainnet trading bots.
+- 🌐 **Live Service**: [https://rugshield-402.onrender.com](https://rugshield-402.onrender.com)
+- 📡 **MCP Server**: [https://github.com/ak10082247-max/rugshield-402](https://github.com/ak10082247-max/rugshield-402)
+- 🐝 **Apify Store Actor**: [apify.com/kuroxreal/rugshield-402](https://apify.com/kuroxreal/rugshield-402) ($0.005/scan)
+- 💳 **x402 V2**: $0.010 USDC on Base (`0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6`)
 
-| Tool | Cost | Capability |
-| :--- | :--- | :--- |
-| `stealth_scrape_and_sanitize` | **$0.02 USDC** | Cloudflare Turnstile / anti-bot bypass via Scrapling StealthyFetcher + CanaryGuard prompt-injection firewall |
-| `polymarket_alpha_divergence` | **$0.05 USDC** | Live Polymarket Gamma + CLOB orderbook spread & whale divergence scanner + resolution criteria audit |
-| `pre_trade_agent_gate` | **$0.03 USDC** | On-chain DexScreener + Base/Solana RPC honeypot & bytecode gate + CanaryGuard metadata sanitization |
-| `health_and_sample` | **Free ($0.00)** | Zero-paywall uptime discovery probe for MCP directories (Glama, Smithery, x402Atlas) |
+### 2. AgentFuel402 — Consumable AI Data Factory & Web Scraper Engine
+Consumable data factory and scraper suite built specifically for AI agents, Clay/n8n automations, and LLM context pipelines with Verify -> Fetch -> Settle protection.
+- 🌐 **Cloudflare Edge Gateway**: [https://agentfuel402.ak10082247.workers.dev](https://agentfuel402.ak10082247.workers.dev)
+- 📡 **MCP Server**: `https://agentfuel402.ak10082247.workers.dev/mcp`
+- 🐝 **Apify PPE Actors**: [Reverse Engineer Anything (REA)](https://apify.com/kuroxreal/reverse-engineer-anything) · [B2B Leads](https://apify.com/kuroxreal/b2b-intent-leads-ppe) · [LLM Clean Markdown](https://apify.com/kuroxreal/llm-clean-markdown-ppe) · [E-Commerce Price & Stock](https://apify.com/kuroxreal/ecom-price-stock-ppe)
+- 💻 **Open-Source Repo**: [https://github.com/ak10082247-max/agentfuel402](https://github.com/ak10082247-max/agentfuel402)
 
 ---
 
