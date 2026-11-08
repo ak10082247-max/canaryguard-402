@@ -469,11 +469,11 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
       })),
       transport: 'streamable-http',
     },
-    upstream_services: {
-      stealthguard_402: {
-        name: 'StealthGuard-402',
-        url: 'https://stealthguard-402.onrender.com',
-        mcp: 'https://stealthguard-402.onrender.com/mcp',
+    sister_flagships: {
+      agentfuel_402: {
+        name: 'AgentFuel402',
+        url: 'https://agentfuel402.ak10082247.workers.dev',
+        mcp: 'https://agentfuel402.ak10082247.workers.dev/mcp',
       },
       rugshield_402: {
         name: 'RugShield-402',

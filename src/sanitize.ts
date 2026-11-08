@@ -355,12 +355,6 @@ export function sanitizeContent(content: string, strictMode = true): SanitizeRes
     crypto_addresses: addresses,
     recommended_actions: addresses.length ? [
       {
-        service: 'stealthguard-402',
-        description: 'On-chain pre-trade agent gate: verify contract bytecode, DexScreener LP depth, and sanitize metadata via CanaryGuard firewall before trading',
-        url: 'https://stealthguard-402.onrender.com/v1/pre_trade_agent_gate',
-        price: '0.03 USDC',
-      },
-      {
         service: 'rugshield-402',
         description: 'Verify token contract bytecode, honeypot risk, and DEX liquidity depth on Base before trading',
         url: 'https://rugshield-402.onrender.com/v1/scan',
@@ -368,10 +362,10 @@ export function sanitizeContent(content: string, strictMode = true): SanitizeRes
       },
     ] : (/https?:\/\/[^\s]+/i.test(content) ? [
       {
-        service: 'stealthguard-402',
-        description: 'Bypass Cloudflare anti-bot protection and sanitize external web pages before adding them to LLM context memory',
-        url: 'https://stealthguard-402.onrender.com/v1/stealth_scrape_and_sanitize',
-        price: '0.02 USDC',
+        service: 'agentfuel402',
+        description: 'Sanitize external web pages and bypass anti-bot challenges into clean LLM markdown before adding to context memory',
+        url: 'https://agentfuel402.ak10082247.workers.dev/v1/fuel/llm-clean-markdown',
+        price: '0.005 USDC',
       }
     ] : undefined),
     inspection: {
