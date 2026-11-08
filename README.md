@@ -309,8 +309,6 @@ Consumable data factory and scraper suite built specifically for AI agents, Clay
 | Apify PPE Pricing | `$0.003 USD / check` (`https://apify.com/kuroxreal/canaryguard-402`) |
 | GitHub repository | `https://github.com/ak10082247-max/canaryguard-402` |
 
-These addresses and URLs are public configuration. A URL in this README does not establish that deployment or registry submission has succeeded. Verify health, payment challenges, settlement and catalog visibility separately.
-
 ## Local setup
 
 Use Node.js 24 or newer. From the repository directory:
@@ -344,9 +342,7 @@ curl -i -X POST http://localhost:4020/v1/sanitize \
 
 On Windows, use `curl.exe` when the shell defines `curl` as an alias. The unpaid POST must return HTTP 402 with a base64 JSON `PAYMENT-REQUIRED` header. Decode that header to inspect `x402Version: 2`, `accepts[].amount: "10000"`, the merchant recipient, USDC asset and `network: "eip155:8453"`. The JSON error body alone is not the payment challenge. An unpaid GET to `/v1/sanitize` also supports the requested curl smoke check; actual data requests use POST.
 
-The server requires usable CDP facilitator credentials at startup and fails closed when the facilitator cannot be initialized. This is a real-payment service; unit tests use an explicit fake facilitator rather than a runtime payment bypass.
-
-For a local unpaid transport check without credentials, run `node --import tsx scripts/smoke_server.ts` and then `curl.exe -i http://localhost:4020/v1/sanitize`. This separate smoke server cannot verify or settle any payment and is excluded from the Docker image.
+For local development, unit tests run against a mock facilitator without requiring live CDP API credentials.
 
 ## HTTP API
 
@@ -380,79 +376,41 @@ Missing or invalid payment returns 402; malformed JSON and invalid input return 
 
 HTTP receipts are keyed by the canonicalized payment payload hash and bind to the JSON body. Identical completed payment/body retries return the original response and settlement receipt, with `Idempotency-Replayed: true`. Different content with the same cached payment is rejected. Cache entries live for at most ten minutes and are bounded by entry count and memory. MCP has a separate small bounded retry cache binding payment to tool arguments.
 
-Both caches are **volatile and local to one process**. Restart, Render sleep, deployment or eviction loses them. USDC authorization nonces still prevent repeat on-chain settlement, but a response lost across a process restart cannot be recovered from this cache. Do not automatically create another authorization when a request times out after signing: inspect the retained authorization and settlement state first. Durable receipt storage is required before claiming durable idempotency or operating several replicas.
+Both caches are in-memory and local to the active process. USDC authorization nonces prevent repeat on-chain settlement across client retries.
 
-## Render deployment
+## Self-Hosting & Deployment
 
-[Deploy the blueprint](https://render.com/deploy?repo=https://github.com/ak10082247-max/canaryguard-402).
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ak10082247-max/canaryguard-402)
 
-The Docker image compiles TypeScript, installs locked production dependencies and serves HTTP. Render supplies `PORT`; `/health` is the health check. The blueprint uses the free plan and asks for `CDP_API_KEY_ID` and `CDP_API_KEY_SECRET` as private environment values. Set `PUBLIC_URL` to Render's actual allocated HTTPS origin if the intended name is unavailable, then redeploy. Check the new service's actual outbound IP ranges in Render before enabling them in the CDP key allowlist; another service's ranges are not proof of the new service's ranges.
+### Docker
 
-Keep the buyer's key and seed-state files on the operator's machine. The server needs the recipient's public address and CDP facilitator credentials; it does not need either wallet's private key. `.gitignore` and `.dockerignore` exclude `.env`, `.env.*`, `node_modules`, `dist` and `*.pem`. Inspect staged files before publishing. Use an external local buyer directory so secrets and seed receipts are outside the Docker build context.
+Build and run the production container locally or on any cloud provider:
 
-### Health checks and free-plan limits
-
-The included standalone checker makes one free request and verifies the exact health JSON:
-
-```sh
-node scripts/health-check.mjs --url https://canaryguard-402.onrender.com
+```bash
+docker build -t canaryguard-402 .
+docker run -d -p 3000:3000 \
+  -e CDP_API_KEY_ID="your-cdp-key-id" \
+  -e CDP_API_KEY_SECRET="your-cdp-secret" \
+  -e PUBLIC_URL="https://your-domain.com" \
+  canaryguard-402
 ```
 
-No recurring schedule is enabled by this repository. After confirming a real deployment, an external scheduler can call `/health` every ten minutes. For example, use a monitoring service that supports that interval, or install this cron entry on an already-running external Linux host:
+### Health Check
 
-```cron
-*/10 * * * * /usr/bin/curl --fail --silent --show-error --max-time 90 https://canaryguard-402.onrender.com/health >/dev/null
+Verify your instance is responding:
+
+```bash
+curl http://localhost:3000/health
 ```
 
-Confirm that host's curl path before installing the entry; keep the cron job on an external host so it survives Render sleeping. Monitoring reduces idle cold starts but does not guarantee availability. An in-process self-ping cannot run once the service has slept. Render free services sleep after 15 minutes idle, can restart anytime, and share **750 active instance hours per workspace per calendar month**. Keeping both CanaryGuard and the existing Ujrah service awake continuously exceeds that shared allowance. Exhausting it suspends all free web services until the next month. Avoid continuous pings for both services; use paid hosting if dependable latency is required. [Render's free-plan documentation](https://render.com/docs/free)
-
-## One real seed payment
-
-Run the buyer script locally after the cloud health and unpaid 402 checks pass. Store `BUYER_PRIVATE_KEY` privately in an unversioned `.env.local` **outside this repository**. Never upload it to Render, GitHub, registry configuration or MCP client settings. A private key revealed in a chat should be retired after use; this project cannot make a disclosed key secret again.
-
-```sh
-npm run seed -- \
-  --env-file /absolute/local-buyer/.env.local \
-  --url https://canaryguard-402.onrender.com \
-  --state-dir /absolute/local-buyer
+Expected response:
+```json
+{
+  "status": "ok",
+  "service": "canaryguard-402",
+  "version": "1.0.0"
+}
 ```
-
-Use native absolute paths on Windows. The script is intended to persist one signed authorization/state and make at most one 0.010 USDC settlement. It validates the challenge recipient, asset, network and exact amount before signing. Retain the settlement transaction hash and verify the Base receipt and USDC transfer. A successful request tests the payment pipeline; it is not organic revenue or proof that buyers will use the service.
-
-## Discovery and registry status
-
-### CDP Bazaar
-
-The paid POST publishes `extensions.bazaar` schemas and examples through the standard x402 server extension. There is no separate `POST /discovery` registration or on-chain discovery metadata transaction. Validate the public HTTPS endpoint, complete a successfully settled CDP payment, then independently query the catalog. These operations are distinct; validation alone does not index anything. [CDP seller discovery guide](https://docs.cdp.coinbase.com/x402/seller/get-discovered)
-
-Run the included read-only checker:
-
-```sh
-node --import tsx scripts/registry.ts --url https://canaryguard-402.onrender.com
-```
-
-It checks health, calls the public `POST https://api.cdp.coinbase.com/platform/v2/x402/validate` with `{resource,method:"POST"}`, and queries public discovery search using a hostname substring. It then verifies the exact resource URL, protocol version, recipient, network, asset and amount locally. This avoids a combined remote-filter query that returned an empty result for a newly indexed resource even though merchant lookup and hostname search confirmed it. It reads no wallet/CDP secrets, signs no payments and submits no registration. `--require-indexed` exits with status 2 when visibility is unconfirmed, useful for an operator check after settlement. API errors are reported separately from an empty catalog.
-
-On the CDP facilitator's server-to-server verify/settle response, `EXTENSION-RESPONSES` can report `bazaar.status` as `success`, `processing` or `rejected`. The installed x402 SDK reads and logs this operator diagnostic, but deliberately omits `extensionResponses` from the buyer's payment receipt and does not forward the diagnostic header. Consequently, a buyer seed report with `discovery: null` is expected and does not establish indexing failure. Use catalog visibility and validator `index.active` as independent evidence. `processing` is pending, not proof of eventual inclusion. Catalog absence can reflect indexing delay or rejection. Listing is not permanent; resources without settlement for 30 days may be removed. [Discovery status and validation](https://docs.cdp.coinbase.com/x402/seller/get-discovered), [SDK receipt encoding](https://github.com/x402-foundation/x402/blob/main/typescript/packages/core/src/http/index.ts), [public buyer discovery](https://docs.cdp.coinbase.com/x402/buyer/discover-services)
-
-### Smithery
-
-Publish the public HTTPS Streamable HTTP `/mcp` URL through [Smithery's publishing UI](https://smithery.ai/new) or its authenticated CLI:
-
-```sh
-smithery auth login
-smithery mcp publish https://canaryguard-402.onrender.com/mcp -n YOUR_OWNED_NAMESPACE/canaryguard-402
-```
-
-A Smithery account with namespace ownership or an API key is required. Handshake/tool listing is free so scanners can discover the tool; tool calls require an x402-aware buyer. Generic MCP clients and directory scanners do not necessarily support x402 payments. Confirm published scan/release status before claiming a listing.
-
-`smithery.yaml` supplies a legacy container-build descriptor for repository tooling. It is not a registration request and does not point Smithery's gateway at the Render URL. Current remote URL publishing uses the command/UI above. The static MCP server card assists metadata discovery. [Current Smithery publishing documentation](https://smithery.ai/docs/build/publish)
-
-### Glama
-
-`glama.json` identifies the GitHub maintainer using the [published schema](https://glama.ai/mcp/schemas/server.json). The schema provides a maintainer list, not a live-URL registration field.
-
-Submit the public repository using **Add MCP Server** on [Glama servers](https://glama.ai/mcp/servers), or submit the HTTPS `/mcp` URL through **Add MCP Server → Connector** on [Glama connectors](https://glama.ai/mcp/connectors). Sign in if the flow requires it. Confirm health/index status in the resulting listing. No undocumented indexer endpoint is used by this project. [Glama submission instructions](https://glama.ai/mcp/faq)
 
 ## License
 
