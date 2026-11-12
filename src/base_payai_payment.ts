@@ -102,7 +102,6 @@ function setBase402Header(res: Response, spec: EndpointSpec, publicUrl: string, 
     resource,
     accepts: [basePaymentRequirements(spec.amountMicro, payTo)],
     extensions: {
-      discoverable: true,
       bazaar: buildBaseBazaarExtension(spec),
     },
   };
@@ -195,10 +194,17 @@ export function basePayaiPaymentGate(
 
     const resourceUrl = `${publicUrl}${spec.path}`;
     const paymentRequirements = basePaymentRequirements(spec.amountMicro, expectedPayTo);
+    const extraExtensions: Record<string, unknown> = {};
+    if (payment.extensions && typeof payment.extensions === 'object' && !Array.isArray(payment.extensions)) {
+      for (const [k, v] of Object.entries(payment.extensions)) {
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          extraExtensions[k] = v;
+        }
+      }
+    }
     const extensions: Record<string, unknown> = {
-      discoverable: true,
+      ...extraExtensions,
       bazaar: buildBaseBazaarExtension(spec),
-      ...(payment.extensions && typeof payment.extensions === 'object' ? payment.extensions : {}),
     };
     const normalizedPayment = {
       x402Version: 2,

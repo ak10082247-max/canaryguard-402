@@ -130,8 +130,9 @@ test('Base PayAI gate handles X-X402-Facilitator: payai with Bazaar extension, r
   t.after(() => journal.close());
   const h = await setupHarness(t, { journal });
 
-  // 1. Explicit PayAI Base purchase via header
+  // 1. Explicit PayAI Base purchase via header (and strip non-object extensions like discoverable:true)
   const payaiPayment = await signBasePayment('https://canaryguard-test.example/v1/sanitize', 101);
+  (payaiPayment as any).extensions = { discoverable: true, customObj: { ok: true } };
   const res1 = await fetch(`${h.origin}/v1/sanitize`, {
     method: 'POST',
     headers: {
@@ -151,6 +152,8 @@ test('Base PayAI gate handles X-X402-Facilitator: payai with Bazaar extension, r
   assert.equal(receipt.amount, '10000');
   assert.deepEqual(h.cdpCalls, { verify: 0, settle: 0 });
   assert.deepEqual(h.payaiCalls.map(c => c.path), ['verify', 'settle']);
+  assert.equal(h.payaiCalls[0].body.paymentPayload.extensions?.discoverable, undefined);
+  assert.deepEqual(h.payaiCalls[0].body.paymentPayload.extensions?.customObj, { ok: true });
   assert.ok(h.payaiCalls[1].body.paymentPayload.extensions?.bazaar?.info?.input);
   assert.ok(h.payaiCalls[1].body.paymentPayload.extensions?.bazaar?.schema);
 
