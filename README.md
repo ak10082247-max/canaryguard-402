@@ -41,7 +41,7 @@ For autonomous agent developers and AI infrastructure teams who prefer standard 
 
 ## 💻 1-Click Desktop MCP Setup (Claude Desktop & Cursor)
 
-Connect CanaryGuard's 28 security tools directly to your local desktop AI agent:
+Connect CanaryGuard's 26 security tools directly to your local desktop AI agent:
 
 ### Claude Desktop (`claude_desktop_config.json`)
 ```json

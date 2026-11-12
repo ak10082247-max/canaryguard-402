@@ -37,7 +37,7 @@ export interface CanaryGuardSanitizeOutput {
  */
 export async function executeCanaryGuardSanitize(
   params: CanaryGuardSanitizeInput,
-  options?: { hostUrl?: string; paymentHeader?: string }
+  options?: { hostUrl?: string; paymentHeader?: string; useFreePreview?: boolean }
 ): Promise<CanaryGuardSanitizeOutput> {
   const host = (
     options?.hostUrl ||
@@ -45,7 +45,11 @@ export async function executeCanaryGuardSanitize(
     "https://canaryguard-402.onrender.com"
   ).replace(/\/$/, "");
 
-  const url = `${host}/v1/sanitize`;
+  const usePreview =
+    options?.useFreePreview === true ||
+    (!options?.paymentHeader && process.env.CANARYGUARD_FREE_PREVIEW === "true");
+
+  const url = `${host}${usePreview ? "/v1/sanitize/preview" : "/v1/sanitize"}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -63,6 +67,12 @@ export async function executeCanaryGuardSanitize(
       strict_mode: params.strictMode !== false,
     }),
   });
+
+  if (res.status === 402) {
+    throw new Error(
+      `CanaryGuard 402 Payment Required ($0.010 USDC via x402). Pass options.paymentHeader (from @x402/fetch) for production /v1/sanitize, or set { useFreePreview: true } / CANARYGUARD_FREE_PREVIEW=true to evaluate via free /v1/sanitize/preview.`
+    );
+  }
 
   if (!res.ok) {
     const text = await res.text();
@@ -86,6 +96,7 @@ export async function executeCanaryGuardSanitize(
 export interface CanaryGuardActionProviderConfig {
   hostUrl?: string;
   paymentHeader?: string;
+  useFreePreview?: boolean;
 }
 
 /**
