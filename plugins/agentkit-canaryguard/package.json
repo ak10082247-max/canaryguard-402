@@ -1,6 +1,6 @@
 {
   "name": "@kurox_real/agentkit-canaryguard-402",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Coinbase AgentKit Action Provider for CanaryGuard 402 prompt-injection firewall and honeypot scrubber on Base (x402 protocol gated).",
   "type": "module",
   "main": "dist/index.js",
