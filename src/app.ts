@@ -32,12 +32,14 @@ import { receiptRetries } from './retries.js';
 import { executeEndpoint, ExecutionError } from './execution.js';
 import type { PaymentJournal } from './payment_journal.js';
 import { solanaPaymentGate } from './solana_payment.js';
+import { basePayaiPaymentGate } from './base_payai_payment.js';
 import { mcpHandler } from './mcp.js';
 import { sendRevenueAlert } from './alerts.js';
 import { recordDeliveryMiddleware, getRecentDeliveries, getPaidDeliveries } from './delivery_recorder.js';
 
-export async function createApp(payments: Awaited<ReturnType<typeof createPayments>>, options: { execute?:typeof executeEndpoint; journal?:PaymentJournal } = {}) {
+export async function createApp(payments: Awaited<ReturnType<typeof createPayments>>, options: { execute?:typeof executeEndpoint; journal?:PaymentJournal; fetch?:typeof fetch } = {}) {
   const execute=options.execute || executeEndpoint;
+  const request: typeof fetch = options.fetch || ((...args: Parameters<typeof fetch>) => fetch(...args));
   const app = express();
   app.disable('x-powered-by');
   app.set('case sensitive routing', true);
@@ -64,7 +66,7 @@ export async function createApp(payments: Awaited<ReturnType<typeof createPaymen
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: [
-      'Content-Type', 'Accept', 'X-PAYMENT', 'PAYMENT-SIGNATURE', 'MCP-Protocol-Version', 'Mcp-Session-Id', 'X-Action-Version', 'X-Blockchain-Ids'
+      'Content-Type', 'Accept', 'X-PAYMENT', 'PAYMENT-SIGNATURE', 'X-X402-Facilitator', 'X-Facilitator', 'MCP-Protocol-Version', 'Mcp-Session-Id', 'X-Action-Version', 'X-Blockchain-Ids'
     ],
     exposedHeaders: [
       'WWW-Authenticate', 'X-PAYMENT', 'PAYMENT-SIGNATURE', 'X-402-Version', 'Location',
@@ -268,6 +270,8 @@ export async function createApp(payments: Awaited<ReturnType<typeof createPaymen
     pricing: { amount: '10000', price: '0.010 USDC', asset: ASSET, chainId: 8453 },
     payTo: payments.config.payTo,
     solanaPayTo: SOLANA_RECIPIENT,
+    base_facilitators: ['coinbase-cdp', 'payai'],
+    payai_facilitator_header: 'X-X402-Facilitator: payai',
     endpoints_count: ENDPOINT_SPECS.length,
     endpoints: ENDPOINT_SPECS.map(s => ({ path: s.path, price: `${s.priceUsd} USDC`, amount_micro: s.amountMicro })),
     limits: { content_characters: 50000, body_bytes: 262144, idempotency: 'SQLite request-bound recovery; durable across replacements only with persistent PAYMENTS_DB_PATH storage' },
@@ -981,8 +985,9 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
 
 // Polymarket routes handled directly by CanaryGuard executor
 
-  // Solana uses the same real executor, with acquisition before settlement.
-  app.use(solanaPaymentGate(payments.config.publicUrl,fetch,execute));
+  // Solana and PayAI-routed Base requests use the same real executor, with acquisition before settlement.
+  app.use(solanaPaymentGate(payments.config.publicUrl,request,execute));
+  app.use(basePayaiPaymentGate(payments.config.publicUrl,payments.config.payTo,request,execute));
 
   app.use((req, res, next) => {
     // RapidAPI Gateway & Direct API Key Bypass

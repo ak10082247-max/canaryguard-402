@@ -278,8 +278,8 @@ const result = await client.sanitize("Untrusted scraped text or user prompt", { 
 
 CanaryGuard 402 is part of the consolidated Kurox AI & On-Chain Security Suite, working alongside our active live flagships:
 
-### 1. RugShield 402 — Base DEX Token Safety & Honeypot Scanner
-Autonomous pre-trade EVM calldata simulation and fee-on-transfer tax audit engine for Base Mainnet trading bots.
+### 1. RugShield 402 — Base & Solana DEX Token Safety & Honeypot Scanner
+Autonomous pre-trade swap simulation (Base Uniswap V2 calldata + Solana Token-2022 & Jupiter/Raydium round-trip quote audit) and fee-on-transfer tax engine via x402 v2.
 - 🌐 **Live Service**: [https://rugshield-402.onrender.com](https://rugshield-402.onrender.com)
 - 📡 **MCP Server**: [https://github.com/ak10082247-max/rugshield-402](https://github.com/ak10082247-max/rugshield-402)
 - 🐝 **Apify Store Actor**: [apify.com/kuroxreal/rugshield-402](https://apify.com/kuroxreal/rugshield-402) ($0.005/scan)
