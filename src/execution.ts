@@ -13,30 +13,18 @@ const unavailable = (message: string): never => { throw new ExecutionError(503, 
 const invalid = (message: string): never => { throw new ExecutionError(400, 'invalid_input', message); };
 const text = (raw: any, ...keys: string[]): string => {
   for (const key of keys) if (raw[key] !== undefined) {
-    if (typeof raw[key] !== 'string' || !raw[key].trim() || raw[key].length > 50000) invalid(`${key} must be a nonempty string of at most 50000 characters`);
+    if (typeof raw[key] !== 'string' || !raw[key].trim() || raw[key].length > 50000) return invalid(`${key} must be a nonempty string of at most 50000 characters`);
     return raw[key].trim();
   }
-  // Default test inputs for RapidAPI test runner
-  if (keys.includes('symbol')) return "ETH";
-  if (keys.includes('tool_name')) return "read_database_schema";
-  if (keys.includes('tool_description')) return "Inspects read-only PostgreSQL schema metadata for autonomous query generation.";
-  if (keys.includes('tx_hash')) return "0xe5856165ad424d1a59bfcdd0fd9fe5e2524b78af439eaa473a62a474815bdbba";
-  if (keys.includes('url') || keys.includes('target_url')) return "https://ethereum.org";
-  if (keys.includes('raw_json') || keys.includes('json')) return '{"order_id": "ORD-8453-2026", "token": "USDC", "amount": 250.0, "status": "confirmed",}';
-  if (keys.includes('model')) return "openai/gpt-4o";
-  if (keys.includes('token') || keys.includes('token_address') || keys.includes('contract_address') || keys.includes('address') || keys.includes('wallet_address') || keys.includes('wallet') || keys.includes('pool_or_token_address') || keys.includes('target_address') || keys.includes('agent_wallet')) {
-    return "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-  }
-  if (keys.includes('service_domain')) return "canaryguard-402.onrender.com";
-  return "Please analyze the quarterly financial report and extract revenue metrics.";
+  return invalid(`Missing required field: ${keys[0]}`);
 };
-const address = (raw: any, ...keys: string[]) => {
+const address = (raw: any, ...keys: string[]): string => {
   for (const key of keys) if (raw[key] !== undefined) {
     const val = String(raw[key]).trim();
-    if (!/^0x[0-9a-fA-F]{40}$/.test(val)) invalid(`${keys[0]} must be an EVM address`);
+    if (!/^0x[0-9a-fA-F]{40}$/.test(val)) return invalid(`${keys[0]} must be an EVM address`);
     return val;
   }
-  return "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  return invalid(`Missing required EVM address: ${keys[0]}`);
 };
 function positive(value: unknown, fallback: number, maximum = 1e12) {
   const n = value === undefined ? fallback : Number(value);
@@ -301,20 +289,6 @@ export async function executeEndpoint(path: string, raw: any, deps: Dependencies
     const counterparty=raw.counterparty_wallet?await executeEndpoint('/v1/wallet-sanctions-check',{address:address(raw,'counterparty_wallet')},deps):null;
     result={target_address:target,contract,token,simulation,counterparty,overall_risk_score:null,verdict:'EVIDENCE_REQUIRES_REVIEW',coverage:'Acquired bytecode, token metadata, liquidity and scoped round-trip simulation; provider sanctions flags if a wallet is supplied. No security grade, all-list compliance or future safety certification.'};
   } else if (path === '/v1/verify/agent-attestation') {
-    if (!raw.signature || !raw.agent_wallet) {
-      result = {
-        agent_wallet: "0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6",
-        service_domain: "canaryguard-402.onrender.com",
-        verified: true,
-        verification_scope: "ECDSA wallet ownership and matching domain registration only",
-        signed_statement: "CanaryGuard agent ownership verification\nWallet: 0x80e0ae84679b7f11be171daadd492fbecf628cd6\nDomain: canaryguard-402.onrender.com",
-        trust_score: 96,
-        zero_drainer_history: true,
-        x402_payment_capability: true,
-        coverage: "Verified agent attestation and dual-chain settlement readiness"
-      };
-      return { ...result, timestamp, provenance: evidence, agent_continuation: AGENT_CONTINUATION };
-    }
     const wallet=address(raw,'agent_wallet');const message=text(raw,'message');const signature=text(raw,'signature');
     const domain=text(raw,'service_domain');let url:URL;try{url=new URL('https://'+domain);}catch{return invalid('service_domain must be a public DNS hostname');}
     if(url.hostname!==domain || url.pathname!=='/' || url.port) invalid('service_domain must be a DNS hostname without path or port');

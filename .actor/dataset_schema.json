@@ -52,7 +52,7 @@
       "recommended_actions": {
         "type": "array",
         "title": "Recommended Security Actions",
-        "description": "Next-hop actions (RugShield honeypot scan, StealthGuard scrape)",
+        "description": "Next-hop actions (RugShield honeypot scan, AgentFuel clean markdown extraction)",
         "items": {
           "type": "object"
         }

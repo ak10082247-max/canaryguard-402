@@ -990,18 +990,15 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
   app.use(basePayaiPaymentGate(payments.config.publicUrl,payments.config.payTo,request,execute));
 
   app.use((req, res, next) => {
-    // RapidAPI Gateway & Direct API Key Bypass
-    // RapidAPI automatically attaches X-RapidAPI-Proxy-Secret and X-RapidAPI-User on all proxied requests
     const rapidSecret = req.headers['x-rapidapi-proxy-secret'];
-    const rapidUser = req.headers['x-rapidapi-user'];
-    const rapidHost = req.headers['x-rapidapi-host'];
     const apiKey = req.headers['x-api-key'] || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
     const configuredSecret = process.env.RAPIDAPI_PROXY_SECRET;
-    const configuredApiKey = process.env.SERVICE_API_KEY || 'kurox-master-key-2026';
+    const configuredApiKey = process.env.SERVICE_API_KEY;
 
-    const isRapidApi = Boolean((configuredSecret && rapidSecret === configuredSecret) || rapidSecret || rapidUser || rapidHost);
+    const isRapidApi = Boolean(configuredSecret && rapidSecret === configuredSecret);
+    const hasValidApiKey = Boolean(configuredApiKey && apiKey === configuredApiKey);
 
-    if (isRapidApi || (apiKey && apiKey === configuredApiKey)) {
+    if (isRapidApi || hasValidApiKey) {
       res.setHeader('X-RapidAPI-Bypass', 'active');
       return next();
     }

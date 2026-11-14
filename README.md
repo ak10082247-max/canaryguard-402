@@ -408,7 +408,7 @@ Expected response:
 {
   "status": "ok",
   "service": "canaryguard-402",
-  "version": "1.0.0"
+  "version": "1.3.0"
 }
 ```
 

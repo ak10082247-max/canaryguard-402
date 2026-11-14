@@ -1,7 +1,7 @@
 """CanaryGuard 402 - Python Client
 
 Deterministic prompt-injection firewall and honeypot scrubber for AI agents.
-0.003 USDC per call on Base (eip155:8453) via x402.
+$0.010 USDC per call on Base (eip155:8453) or Solana via x402.
 """
 
 from typing import Any, Dict, List, Optional
@@ -34,7 +34,7 @@ class CanaryGuard:
             payment_header: Optional X-PAYMENT authorization signature.
 
         Returns:
-            Dict containing status ("clean" | "neutralized" | "blocked"),
+            Dict containing status ("clean" | "sanitized" | "blocked"),
             risk_score (0.0 - 1.0), injection_detected (bool),
             threats_neutralized, crypto_addresses, sanitized_content, and safety_receipt.
         """
@@ -56,7 +56,7 @@ class CanaryGuard:
             if e.code == 402:
                 pr = e.headers.get("PAYMENT-REQUIRED")
                 raise PermissionError(
-                    f"402 Payment Required: 0.003 USDC required on Base. Challenge: {pr}"
+                    f"402 Payment Required: 0.010 USDC required on Base/Solana. Challenge: {pr}"
                 )
             raise RuntimeError(f"CanaryGuard HTTP {e.code}: {body}")
 

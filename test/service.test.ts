@@ -505,3 +505,21 @@ test('public free preview /v1/sanitize/preview operates without 402 payment chal
   assert.equal(postData.sanitized_content, 'Harmless prompt for testing');
   assert.deepEqual(h.calls, { verify: [], settle: [] });
 });
+
+test('spoofed RapidAPI headers and legacy default API key cannot bypass 402 payment gate', async t => {
+  const h = await harness(t);
+  const res = await h.send('/v1/sanitize', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-RapidAPI-User': 'spoofed-user',
+      'X-RapidAPI-Host': 'canaryguard-402.p.rapidapi.com',
+      'X-RapidAPI-Proxy-Secret': 'wrong-secret',
+      'X-Api-Key': 'kurox-master-key-2026',
+    },
+    body: JSON.stringify(ATTACK),
+  });
+  assert.equal(res.status, 402);
+  await res.arrayBuffer();
+  assert.deepEqual(h.calls, { verify: [], settle: [] });
+});

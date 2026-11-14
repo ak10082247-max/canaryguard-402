@@ -73,3 +73,7 @@ test('SSRF address checks reject local, link-local, mapped IPv6 and reserved net
   for(const ip of ['127.0.0.1','10.0.0.1','169.254.169.254','100.64.0.1','192.168.0.1','::1','::ffff:127.0.0.1','fc00::1','fe80::1','2001:db8::1','224.0.0.1']) assert.equal(publicAddress(ip),false,ip);
   assert.equal(publicAddress('1.1.1.1'),true);assert.equal(publicAddress('2606:4700:4700::1111'),true);
 });
+test('/v1/verify/agent-attestation rejects missing signature or wallet with 400 invalid_input',async()=>{
+  await assert.rejects(()=>executeEndpoint('/v1/verify/agent-attestation',{}),{status:400,code:'invalid_input'});
+  await assert.rejects(()=>executeEndpoint('/v1/verify/agent-attestation',{agent_wallet:TOKEN}),{status:400,code:'invalid_input'});
+});

@@ -23,12 +23,12 @@
 | **Facilitators** | Coinbase CDP & PayAI Facilitator | PayAI Facilitator (`https://facilitator.payai.network`) |
 | **Gas Sponsorship** | 100% Gasless (Relayer pays L2 gas) | 100% Gasless (FeePayer `CjNFTjvBhbJJd2B5ePPMHRLx1ELZpa8dwQgGL727eKww`) |
 
-## 3. Core Security & Intelligence Endpoints ($0.010 – $0.020 USDC)
+## 3. Core Security & Intelligence Endpoints ($0.010 – $0.100 USDC)
 1. `POST /v1/sanitize` ($0.010 USDC) — Prompt injection & context-poisoning firewall (`{"content": "...", "strict_mode": true}`).
-2. `POST /v1/security/agent-memory-guard` ($0.020 USDC) — Audits agent long-term memory & scratchpads for delayed backdoor injections.
-3. `POST /v1/security/eip712-signature-auditor` ($0.020 USDC) — Deep EIP-712 typed signature analyzer flagging permit drainers and rogue spenders.
-4. `POST /v1/security/mcp-tool-poisoning-audit` ($0.020 USDC) — Audits Model Context Protocol tools for hidden injection traps.
-5. `POST /v1/security/wallet-drainer-check` ($0.020 USDC) — Screens recipient wallets against 50,000+ known drainer scripts and phishing clusters.
+2. `POST /v1/security/agent-memory-guard` ($0.050 USDC) — Audits agent long-term memory & scratchpads for delayed backdoor injections.
+3. `POST /v1/security/eip712-signature-auditor` ($0.050 USDC) — Deep EIP-712 typed signature analyzer flagging permit drainers and rogue spenders (`POST /v1/eip712-signature-audit` also available at $0.010 USDC).
+4. `POST /v1/security/mcp-tool-poisoning-audit` ($0.050 USDC) — Audits Model Context Protocol tools for hidden injection traps.
+5. `POST /v1/security/wallet-drainer-check` ($0.050 USDC) — Screens recipient wallets and contracts via live GoPlus security intelligence for drainer, phishing, and malicious flags.
 6. `POST /v1/base/token` ($0.010 USDC) — Complete Base ERC-20 contract audit, liquidity verification & tax simulation.
 7. `POST /v1/wallet-analysis` ($0.010 USDC) — EVM wallet security, nonce tracking, and drainer exposure check.
 8. `POST /v1/url-agent-readiness` ($0.010 USDC) — Audits target websites for `llms.txt`, `x402`, `openapi.json`, and hidden DOM traps.

@@ -25,7 +25,7 @@ const result = await executeCanaryGuardSanitize(
   { paymentHeader: "<base64-x402-payment-signature>" }
 );
 
-console.log("Status:", preview.status); // "clean" | "neutralized" | "blocked"
+console.log("Status:", preview.status); // "clean" | "sanitized" | "blocked"
 console.log("Risk Score:", preview.riskScore); // 0.00 - 1.00
 console.log("Sanitized Content:", preview.sanitizedContent);
 ```

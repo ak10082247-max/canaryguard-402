@@ -81,7 +81,7 @@
       ],
       "pay_per_call": {
         "enabled": true,
-        "price_usd": 0.003
+        "price_usd": 0.010
       }
     }
   }
