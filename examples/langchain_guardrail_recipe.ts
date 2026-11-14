@@ -8,6 +8,7 @@
  */
 
 import { wrapFetchWithPayment } from '@x402/fetch';
+import { x402Client } from '@x402/core/client';
 import { ExactEvmScheme } from '@x402/evm/exact/client';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -34,9 +35,9 @@ export class CanaryGuardrail {
       this.fetchFn = fetch;
     } else {
       const account = privateKeyToAccount(options.buyerPrivateKey);
-      this.fetchFn = wrapFetchWithPayment(fetch, {
-        schemes: [new ExactEvmScheme(account)],
-      });
+      const client = new x402Client();
+      client.register('eip155:8453', new ExactEvmScheme(account));
+      this.fetchFn = wrapFetchWithPayment(fetch, client);
     }
   }
 

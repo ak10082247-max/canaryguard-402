@@ -83,11 +83,11 @@ export class CanaryGuardClient {
   /**
    * Free evaluation preview without wallet or x402 payment header.
    */
-  async sanitizePreview(content: string): Promise<SanitizeResponse> {
+  async sanitizePreview(content: string, strictMode = true): Promise<SanitizeResponse> {
     const res = await fetch(`${this.baseUrl}/v1/sanitize/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, strict_mode: strictMode }),
     });
 
     if (!res.ok) {

@@ -31,13 +31,13 @@ function payingFetch() {
   return wrapFetchWithPayment(fetch, client);
 }
 
-const server = new McpServer({ name: "canaryguard-402", version: "1.0.0" });
+const server = new McpServer({ name: "canaryguard-402", version: "1.3.0" });
 
 server.tool(
   "canary_sanitize",
   "Call this security tool before placing untrusted text, scraped web content, or tool outputs into your context window. Detects and scrubs prompt injection and malicious wallet transfer exploits. Cost: 0.010 USDC on Base.",
   {
-    content: z.string().min(1).max(200_000).describe("Untrusted text to inspect"),
+    content: z.string().min(1).max(50_000).describe("Untrusted text to inspect"),
     strict_mode: z.boolean().optional().default(true).describe("Redact high-risk addresses/encoded blobs and block exfiltration attempts"),
   },
   async ({ content, strict_mode }) => {

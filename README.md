@@ -251,7 +251,10 @@ npm install @kurox_real/agentkit-canaryguard-402
 import { canaryGuardActionProvider } from "@kurox_real/agentkit-canaryguard-402";
 
 const agent = await createAgent({
-  actionProviders: [canaryGuardActionProvider()],
+  // Zero-wallet evaluation via free /v1/sanitize/preview:
+  actionProviders: [canaryGuardActionProvider({ useFreePreview: true })],
+  // Or for paid on-chain x402 execution:
+  // actionProviders: [canaryGuardActionProvider({ paymentHeader: process.env.CANARYGUARD_X402_PAYMENT })],
 });
 ```
 

@@ -525,3 +525,38 @@ test('spoofed RapidAPI headers and legacy default API key cannot bypass 402 paym
   await res.arrayBuffer();
   assert.deepEqual(h.calls, { verify: [], settle: [] });
 });
+
+test('GET /docs returns 200 metadata and /v1/sanitize/preview validates empty POST vs GET default and 50k limit', async t => {
+  const h = await harness(t);
+
+  const docsRes = await h.send('/docs');
+  assert.equal(docsRes.status, 200);
+  const docsJson = await docsRes.json() as { service: string; version: string; endpoints: { openapi: string } };
+  assert.equal(docsJson.service, 'canaryguard-402');
+  assert.ok(docsJson.version);
+  assert.match(docsJson.endpoints.openapi, /\/openapi\.json$/);
+
+  const emptyPostRes = await h.send('/v1/sanitize/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: '' }),
+  });
+  assert.equal(emptyPostRes.status, 400);
+  const emptyPostJson = await emptyPostRes.json() as { error: string };
+  assert.equal(emptyPostJson.error, 'invalid_input');
+
+  const getDefaultRes = await h.send('/v1/sanitize/preview');
+  assert.equal(getDefaultRes.status, 200);
+  const getDefaultJson = await getDefaultRes.json() as { status: string; preview: boolean };
+  assert.equal(getDefaultJson.preview, true);
+  assert.equal(getDefaultJson.status, 'blocked');
+
+  const tooLongDemoRes = await h.send('/v1/demo-sanitize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: 'x'.repeat(50001) }),
+  });
+  assert.equal(tooLongDemoRes.status, 400);
+  const tooLongDemoJson = await tooLongDemoRes.json() as { error: string };
+  assert.equal(tooLongDemoJson.error, 'invalid_input');
+});

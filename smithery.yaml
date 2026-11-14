@@ -1,6 +1,6 @@
 name: canaryguard-402
 displayName: CanaryGuard 402
-description: Deterministic prompt-injection firewall, Base token security auditor, and concealed Unicode exploit scrubber for autonomous AI agents, gated via x402 on Base.
+description: Deterministic prompt-injection firewall, Base token security auditor, and concealed Unicode exploit scrubber for autonomous AI agents, gated via x402 on Base and Solana.
 homepage: https://canaryguard-402.onrender.com
 websiteUrl: https://canaryguard-402.onrender.com
 iconUrl: https://canaryguard-402.onrender.com/favicon.ico
@@ -57,7 +57,10 @@ tools:
         risk_score:
           type: number
           description: Heuristic risk severity between 0.0 and 1.0.
-        threats_detected:
+        injection_detected:
+          type: boolean
+          description: Whether prompt injection or malicious override intent was detected.
+        threats_neutralized:
           type: array
           items:
             type: string
@@ -65,17 +68,20 @@ tools:
         sanitized_content:
           type: string
           description: Cleaned text safe for LLM context injection.
+        safety_receipt:
+          type: string
+          description: Verification receipt identifier.
 
-  - name: wallet_drainer_audit
-    description: Inspects raw transaction calldata or EIP-712 typed data payloads against a database of drainer signatures to prevent wallet balance theft.
+  - name: checkWalletDrainer
+    description: Audits EVM wallet and counterparty addresses on Base for Permit2 drainer exposure, approval phishing history, and OFAC sanctions flags.
     inputSchema:
       type: object
       required:
-        - calldata
+        - wallet_address
       properties:
-        calldata:
+        wallet_address:
           type: string
-          description: Hex-encoded transaction calldata to simulate and audit.
+          description: EVM wallet address to screen (0x...).
         chain_id:
           type: integer
           default: 8453
@@ -83,47 +89,59 @@ tools:
     outputSchema:
       type: object
       required:
-        - is_drainer
-        - risk_level
+        - wallet_address
+        - drainer_detected
+        - verdict
       properties:
-        is_drainer:
+        wallet_address:
+          type: string
+          description: Screened EVM wallet address.
+        drainer_detected:
           type: boolean
-          description: Whether calldata routes to a known wallet drainer contract.
-        risk_level:
+          description: Whether address is linked to known Permit2 or approval drainer activity.
+        permit2_risk:
           type: string
-          enum: [CRITICAL, HIGH, MEDIUM, LOW, SAFE]
-          description: Assessed exploit severity level.
-        drained_assets:
-          type: array
-          items:
-            type: string
-          description: Assets or token allowances targeted for unauthorized draining.
-        recommendation:
+          description: Assessed Permit2 exposure level.
+        ofac_sanctioned:
+          type: boolean
+          description: Whether address matches OFAC sanctions lists.
+        verdict:
           type: string
-          description: Cryptographic recommendation for transaction execution.
+          description: Summary safety verdict (e.g. SAFE_COUNTERPARTY).
 
-  - name: mcp_tool_poisoning_audit
-    description: Audits third-party MCP tool declarations and JSON schemas for indirect prompt injection, invisible Unicode, and instructions poisoning.
+  - name: auditMcpToolPoisoning
+    description: Inspects Model Context Protocol (MCP) tool definitions, descriptions, and JSON schemas for hidden prompt overrides, shadowing attacks, and exfiltration sinks.
     inputSchema:
       type: object
       required:
-        - tool_definition
+        - tool_name
+        - tool_description
       properties:
-        tool_definition:
+        tool_name:
+          type: string
+          description: Name of the MCP tool to audit.
+        tool_description:
+          type: string
+          description: Tool description text exposed to the host LLM.
+        input_schema:
           type: object
-          description: The JSON-RPC tool specification object to audit.
+          description: Optional JSON schema object defining the tool input parameters.
     outputSchema:
       type: object
       required:
-        - is_poisoned
-        - confidence
+        - tool_name
+        - poisoning_detected
+        - verdict
       properties:
-        is_poisoned:
+        tool_name:
+          type: string
+          description: Audited MCP tool name.
+        poisoning_detected:
           type: boolean
           description: Whether the tool declaration contains hidden or hostile instructions.
-        confidence:
-          type: number
-          description: Confidence score of the audit classification.
+        shadowing_risk:
+          type: string
+          description: Risk level of cross-tool shadowing or override behavior.
         verdict:
           type: string
-          description: Audit summary and explanation of any identified threats.
+          description: Audit verdict summary (e.g. CLEAN_MCP_TOOL).

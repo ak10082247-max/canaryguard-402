@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ak10082247-max/canaryguard-402",
   "title": "CanaryGuard 402",
-  "description": "Deterministic prompt-injection detection & sanitization for AI agents via x402 on Base.",
-  "version": "1.0.2",
+  "description": "Deterministic prompt-injection firewall, neural deobfuscation & EIP-712/MCP security gateway via x402 on Base and Solana.",
+  "version": "1.3.0",
   "websiteUrl": "https://canaryguard-402.onrender.com",
   "repository": {
     "url": "https://github.com/ak10082247-max/canaryguard-402",
