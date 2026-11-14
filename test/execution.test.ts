@@ -46,7 +46,9 @@ test('JSON repair preserves useful typed values, blocks injected strings and rej
 test('a requested symbol without an actual on-chain feed has no fabricated one dollar fallback',async()=>{
   await assert.rejects(()=>executeEndpoint('/v1/crypto-price-onchain',{symbol:'UNKNOWN'},{fetch:async()=>{throw Error('should not call');}}),{status:400});
 });
-test('signature auditor requires full typed data and flags unlimited amounts',async()=>{
+test('signature auditor requires full typed data (even for empty body) and flags unlimited amounts',async()=>{
+  await assert.rejects(()=>executeEndpoint('/v1/eip712-signature-audit',{}),{status:400});
+  await assert.rejects(()=>executeEndpoint('/v1/security/eip712-signature-auditor',{}),{status:400});
   await assert.rejects(()=>executeEndpoint('/v1/eip712-signature-audit',{verifying_contract:TOKEN}),{status:400});
   const result=await executeEndpoint('/v1/eip712-signature-audit',{typed_data:{domain:{name:'Token',version:'1',chainId:8453,verifyingContract:TOKEN},types:{Permit:[{name:'value',type:'uint256'}]},primaryType:'Permit',message:{value:String((1n<<256n)-1n)}}});
   assert.equal(result.unlimited_allowance_risk,true);assert.equal(result.verdict,'REVIEW_REQUIRED');assert.equal(result.domain_separator_authentic,null);

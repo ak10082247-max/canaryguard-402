@@ -159,6 +159,8 @@ test('health, manifest, and required cross-origin transport headers remain publi
   assert.equal(body.pricing.amount, '10000');
   assert.equal(body.pricing.chainId, 8453);
   assert.equal(body.mcp.tool, 'canary_sanitize');
+  assert.equal(body.mcp.tools_count, 26);
+  assert.equal(body.mcp.tools.length, 26);
 
   const manifestAlias = await h.send('/.well-known/x402');
   assert.equal(manifestAlias.status, 200);

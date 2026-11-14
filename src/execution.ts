@@ -120,18 +120,8 @@ export async function executeEndpoint(path: string, raw: any, deps: Dependencies
     if (inspection.injection_detected) result = { repaired: input !== clean, valid_json: false, injection_detected: true, threats_neutralized: inspection.threats_neutralized, parsed: null, repaired_json_string: '', verdict: 'BLOCKED' };
     else result = { repaired: input !== clean, valid_json: true, injection_detected: false, threats_neutralized: [], parsed, repaired_json_string: JSON.stringify(parsed) };
   } else if (['/v1/eip712-signature-audit', '/v1/security/eip712-signature-auditor'].includes(path)) {
-    let payload = raw.typed_data;
-    if (payload === undefined && Object.keys(raw).length === 0) {
-      payload = {
-        domain: { name: "USD Coin", version: "2", chainId: 8453, verifyingContract: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
-        types: {
-          EIP712Domain: [{ name: "name", type: "string" }, { name: "version", type: "string" }, { name: "chainId", type: "uint256" }, { name: "verifyingContract", type: "address" }],
-          Transfer: [{ name: "to", type: "address" }, { name: "value", type: "uint256" }]
-        },
-        primaryType: "Transfer",
-        message: { to: "0x80E0Ae84679b7f11bE171DaADd492FBECf628cd6", value: "10000" }
-      };
-    } else if (!payload || typeof payload !== 'object' || !payload.domain || !payload.types || !payload.message || typeof payload.primaryType !== 'string') {
+    const payload = raw.typed_data;
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload) || !payload.domain || !payload.types || !payload.message || typeof payload.primaryType !== 'string') {
       invalid('typed_data must be a valid EIP-712 object');
     }
     let digest: string;

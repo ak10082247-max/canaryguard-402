@@ -3,7 +3,7 @@
 [![Base Mainnet](https://img.shields.io/badge/Network-Base%20Mainnet%20(8453)-blue)](https://base.org)
 [![Solana Mainnet](https://img.shields.io/badge/Network-Solana%20Mainnet-14F195?logo=solana&logoColor=white)](https://solana.com)
 [![Apify Store](https://img.shields.io/badge/Apify%20Store-Pay--Per--Event-00A65A?logo=apify&logoColor=white)](https://apify.com/kuroxreal/canaryguard-402)
-[![MCPize](https://img.shields.io/badge/MCPize-Subscribe%20from%20%249.99%2Fmo-8A2BE2?logo=stripe&logoColor=white)](https://mcpize.com)
+[![x402 V2](https://img.shields.io/badge/x402-V2%20Dual--Chain-blue)](https://www.x402.org)
 [![x402 Protocol](https://img.shields.io/badge/Protocol-x402%20v2-green)](https://x402.org)
 [![Coinbase CDP Bazaar](https://img.shields.io/badge/CDP%20Bazaar-Active%20%26%20Indexed-purple)](https://docs.cdp.coinbase.com/x402)
 [![ElizaOS Plugin](https://img.shields.io/npm/v/@kurox_real/plugin-canaryguard?label=ElizaOS%20Plugin&color=orange)](https://www.npmjs.com/package/@kurox_real/plugin-canaryguard)
@@ -11,7 +11,7 @@
 [![Client SDK](https://img.shields.io/npm/v/@kurox_real/canaryguard-client?label=TS%20SDK&color=teal)](https://www.npmjs.com/package/@kurox_real/canaryguard-client)
 [![Glama](https://glama.ai/mcp/servers/ak10082247-max/canaryguard-402/badges/score.svg)](https://glama.ai/mcp/servers/ak10082247-max/canaryguard-402)
 
-Deterministic prompt-injection firewall and honeypot scrubber for autonomous AI agents. `POST /v1/sanitize` costs **0.010 USDC** on Base mainnet and Solana mainnet through x402 V2 facilitators. A free public evaluation endpoint is available at `POST /v1/sanitize/preview`. A remote MCP tool (`canary_sanitize`) exposes the same inspection with payment per tool call, Apify Pay-Per-Event is live at `$0.003/check`, and flat-rate monthly fiat subscriptions are supported via MCPize.
+Deterministic prompt-injection firewall and security auditing API for autonomous AI agents. **28 REST endpoints** (`$0.010 - $0.100 USDC` on Base mainnet and Solana mainnet through x402 V2 facilitators) and **26 remote MCP tools** (`/mcp`) provide machine-verifiable pre-execution checks. A free public evaluation endpoint is available at `POST /v1/sanitize/preview`, and Apify Pay-Per-Event is live at `$0.003/check`.
 
 - 🌐 **Live Web Playground**: [canaryguard-402.onrender.com](https://canaryguard-402.onrender.com)
 - 🔍 **Free Evaluation Preview**: [canaryguard-402.onrender.com/v1/sanitize/preview](https://canaryguard-402.onrender.com/v1/sanitize/preview)
@@ -24,17 +24,11 @@ Deterministic prompt-injection firewall and honeypot scrubber for autonomous AI 
 
 ---
 
-## 💳 Subscribe on MCPize ($9.99/mo Starter, $19.99/mo Pro)
+## 💳 Access & Billing Options
 
-For autonomous agent developers and AI infrastructure teams who prefer standard recurring credit card billing (via Stripe Connect) over per-call crypto payments, **CanaryGuard-402** is available on **[MCPize](https://mcpize.com)**:
-
-| Plan | Price | Monthly Quota | Key Features |
-|---|---|---|---|
-| **Starter** | **$9.99 / mo** | 2,500 checks | System prompt override & jailbreak neutralization, key redaction |
-| **Pro (Recommended)** | **$19.99 / mo** | 25,000 checks | Sub-10ms strict mode, ElizaOS & AgentKit drop-in plugin, 99.9% uptime SLA |
-| **Enterprise** | **$49.99 / mo** | 100,000 checks | Custom threat dictionaries, dedicated high-availability instance, engineer SLA |
-
-- **Instant 1-Click Subscribe**: Paste `https://github.com/ak10082247-max/canaryguard-402` into your **[MCPize Dashboard](https://mcpize.com/dashboard)**.
+- **Pay-Per-Call Crypto (x402 V2, Gasless USDC)**: All 28 HTTP endpoints and 26 remote MCP tools accept gasless USDC payments on **Base Mainnet** (`eip155:8453`) and **Solana Mainnet** (`solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`).
+- **Free Evaluation Sandbox**: `POST /v1/sanitize/preview`, `POST /v1/demo-sanitize`, `GET /v1/feed/live-alerts`, and `POST /v1/chat/completions` require no wallet or API key.
+- **Self-Hosted / BYO Deployment**: Import `https://github.com/ak10082247-max/canaryguard-402` into your own Node 20+ host or container environment (Render, Docker, or your own BYO MCPize deployment).
 - **Direct Remote MCP Endpoint**: `https://canaryguard-402.onrender.com/mcp`
 
 ---
@@ -268,8 +262,13 @@ npm install @kurox_real/canaryguard-client
 ```typescript
 import { CanaryGuardClient } from "@kurox_real/canaryguard-client";
 
+// Free evaluation (no wallet needed):
 const client = new CanaryGuardClient();
-const result = await client.sanitize("Untrusted scraped text or user prompt", { strictMode: true });
+const preview = await client.sanitizePreview("Untrusted scraped text or user prompt");
+
+// Paid /v1/sanitize with automatic x402 V2 signing:
+// const paidClient = new CanaryGuardClient({ privateKey: process.env.EVM_PRIVATE_KEY as `0x${string}` });
+// const result = await paidClient.sanitize({ content: "Untrusted scraped text or user prompt", strictMode: true });
 ```
 
 ---

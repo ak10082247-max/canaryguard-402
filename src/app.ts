@@ -367,8 +367,9 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
       accepted_currencies: ['USDC on Base (eip155:8453)', 'USDC on Solana (solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp)'],
       gasless_sponsorship: '100% sponsored ($0 ETH / $0 SOL required)',
       tier_base: { price_per_request: '0.010 USDC', amount_micro: 10000, description: 'Deterministic Prompt Injection Firewall & Tool Guard' },
-      tier_premium: { price_per_request: '0.020 USDC', amount_micro: 20000, description: 'Token Screener, Dex Trades & Deep Security Audits' },
-      challenge_bounty_fee: { price_per_attempt: '0.010 USDC', bounty_pot: '$5.00+ USDC on-chain', url: 'https://canaryguard-402.onrender.com/bounty.html' },
+      tier_premium: { price_per_request: '0.020 - 0.100 USDC', amount_micro: 20000, description: 'Token Screener, Pre-Sign Simulation & Deep Security Audits' },
+      price_range: '0.010 - 0.100 USDC',
+      challenge_bounty_fee: { status: 'Challenge #1 concluded', awarded: '5.080 USDC to @Leberwurst68', url: 'https://canaryguard-402.onrender.com/bounty.html' },
       docs: 'https://canaryguard-402.onrender.com/stats'
     });
   });
@@ -465,8 +466,8 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
       url: payments.config.publicUrl + '/mcp',
       tool: 'canary_sanitize',
       primary_tool: 'canary_sanitize',
-      tools_count: ENDPOINT_SPECS.length,
-      tools: ENDPOINT_SPECS.map(s => ({
+      tools_count: MCP_ENDPOINT_SPECS.length,
+      tools: MCP_ENDPOINT_SPECS.map(s => ({
         name: s.operationId === 'sanitizeContent' ? 'canary_sanitize' : s.operationId,
         description: s.description,
         cost: `${s.priceUsd} USDC`,
@@ -791,28 +792,28 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
       const model = req.body?.model || 'canaryguard-firewall';
       const strict = req.body?.strict_mode !== false;
 
-      let combinedPrompt = '';
+      const textParts: string[] = [];
       for (const m of messages) {
-        if (typeof m.content === 'string') {
-          combinedPrompt += `\n[${m.role || 'user'}]: ${m.content}`;
+        if (typeof m.content === 'string' && m.content.trim()) {
+          textParts.push(m.content);
         } else if (Array.isArray(m.content)) {
           for (const part of m.content) {
-            if (part?.type === 'text' && typeof part.text === 'string') {
-              combinedPrompt += `\n[${m.role || 'user'}]: ${part.text}`;
+            if (part?.type === 'text' && typeof part.text === 'string' && part.text.trim()) {
+              textParts.push(part.text);
             }
           }
         }
       }
 
-      if (!combinedPrompt.trim()) {
-        combinedPrompt = (req.body?.prompt || req.body?.content || '').toString();
-      }
+      const combinedPrompt = textParts.length > 0
+        ? textParts.join('\n')
+        : (req.body?.prompt || req.body?.content || '').toString();
 
       const scan = sanitizeContent(combinedPrompt, strict);
       const now = Math.floor(Date.now() / 1000);
       const completionId = `chatcmpl-cg-${Date.now().toString(36)}`;
 
-      if (scan.status === 'blocked' || (scan.threats_neutralized && scan.threats_neutralized.length > 0) || (scan.threats_neutralized && scan.threats_neutralized.length > 0)) {
+      if (scan.status === 'blocked' || scan.injection_detected) {
         res.status(200).json({
           id: completionId,
           object: 'chat.completion',
@@ -866,7 +867,7 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
           const upstreamJson: any = await forwardResp.json();
           const assistantReply = upstreamJson.choices?.[0]?.message?.content || '';
           const outputScan = sanitizeContent(assistantReply, false);
-          if (outputScan.threats_neutralized?.length) {
+          if (outputScan.injection_detected || outputScan.status === 'blocked') {
             upstreamJson.choices[0].message.content = outputScan.sanitized_content;
             upstreamJson.canaryguard_firewall = { output_sanitized: true, threats: outputScan.threats_neutralized };
           }
@@ -896,9 +897,13 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
           total_tokens: Math.max(1, Math.ceil(combinedPrompt.length / 4)) + 15
         },
         canaryguard_firewall: {
-          status: 'clean',
-          risk_score: 0.0,
-          verified: true
+          status: scan.status,
+          risk_score: scan.risk_score,
+          injection_detected: scan.injection_detected,
+          threats_neutralized: scan.threats_neutralized,
+          blocked: false,
+          verified: true,
+          upstream_forwarded: false
         }
       });
     } catch (err: any) {
@@ -1160,7 +1165,7 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
     res.json({
       service: 'CanaryGuard 402',
       version: SERVICE_VERSION,
-      pricing: '$0.010 - $0.250 USDC per call on Base & Solana',
+      pricing: '$0.010 - $0.100 USDC per call on Base & Solana',
       solana_network: SOLANA_NETWORK,
       solana_pay_to: SOLANA_RECIPIENT,
       base_pay_to: payments.config.payTo,
