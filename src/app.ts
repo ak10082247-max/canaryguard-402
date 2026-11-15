@@ -767,7 +767,11 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
       return;
     }
     const strict = req.body?.strict_mode !== false;
-    res.json(sanitizeContent(content, strict));
+    const t0 = performance.now();
+    const result = sanitizeContent(content, strict);
+    const engineMs = Number((performance.now() - t0).toFixed(2));
+    res.setHeader('Server-Timing', `engine;dur=${engineMs}`);
+    res.json({ ...result, engine_ms: engineMs });
   });
 
   // Public free preview endpoint for prospective buyers & automated evaluation (Zero cost, no payment required)
@@ -787,9 +791,13 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
     }
     const content = strContent;
     const strict = req.method === 'POST' ? req.body?.strict_mode !== false : req.query.strict_mode !== 'false';
+    const t0 = performance.now();
     const result = sanitizeContent(content, strict);
+    const engineMs = Number((performance.now() - t0).toFixed(2));
+    res.setHeader('Server-Timing', `engine;dur=${engineMs}`);
     res.json({
       preview: true,
+      engine_ms: engineMs,
       free_tier: 'Evaluation only. For production agent protection, use POST /v1/sanitize (0.010 USDC on Base)',
       ...result,
       production_endpoint: {
@@ -1066,7 +1074,10 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
       }
       try {
         res.locals.claimPaymentOperation?.();
+        const t0 = performance.now();
         const result = await execute(spec.path, input);
+        const engineMs = Number((performance.now() - t0).toFixed(2));
+        res.setHeader('Server-Timing', `engine;dur=${engineMs}`);
         res.locals.sanitized = true;
         res.locals.acquiredResult = result;
         res.locals.paymentJournal?.prepare(res.locals.paymentOperationId,result);

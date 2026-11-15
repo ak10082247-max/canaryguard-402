@@ -8,6 +8,17 @@
 import { x402Client, wrapFetchWithPayment } from "@x402/fetch";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { privateKeyToAccount } from "viem/accounts";
+import {
+  sanitizeContentLocal,
+  type LocalCryptoAddressFinding,
+  type LocalSanitizeResponse,
+} from "./local_sanitizer.js";
+
+export {
+  sanitizeContentLocal,
+  type LocalCryptoAddressFinding,
+  type LocalSanitizeResponse,
+};
 
 export interface SanitizeOptions {
   content: string;
@@ -83,6 +94,14 @@ export class CanaryGuardClient {
   /**
    * Free evaluation preview without wallet or x402 payment header.
    */
+  /**
+   * Deterministic in-process prompt-injection & hidden-text sanitizer (<1ms, zero network).
+   * Ideal for offline workflows, CI gates, and sub-10ms runtime guardrails.
+   */
+  sanitizeLocal(content: string, strictMode = true): LocalSanitizeResponse {
+    return sanitizeContentLocal(content, strictMode);
+  }
+
   async sanitizePreview(content: string, strictMode = true): Promise<SanitizeResponse> {
     const res = await fetch(`${this.baseUrl}/v1/sanitize/preview`, {
       method: "POST",

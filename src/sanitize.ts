@@ -65,6 +65,32 @@ const WALLET_DESTINATION_COMMAND = /\b(?:send|transfer|wire|move|drain|empty|swe
 const EVM_ADDRESS = /\b0x[\da-f]{40}\b/gi;
 const ACTIVE_ELEMENTS = 'script, style, template, noscript, iframe, object, embed, svg, math, head, meta, link, base';
 const BLOCK_ELEMENTS = 'p, div, section, article, header, footer, main, aside, nav, li, tr, h1, h2, h3, h4, h5, h6, blockquote, pre';
+const ROLE_DELIMITER_GLOBAL = new RegExp(ROLE_DELIMITER.source, 'gi');
+const HTML_ENTITY_NAMED = /&(?:#\d+|#x[\da-fA-F]+|[a-zA-Z][a-zA-Z0-9]{1,9});/;
+const UNSAFE_ATTR_HINT = /(?:^|[\s"'/])on[a-z]+\s*=|javascript:|data:text\/html/i;
+
+const ALL_COMMAND_PATTERNS = [
+  ROLE_DELIMITER,
+  ROLE_PREFIX,
+  MARKDOWN_DELIMITER_ESCAPE,
+  STRUCTURED_ROLE_INJECTION,
+  INSTRUCTION_OVERRIDE,
+  POLITE_EXFILTRATION,
+  JAILBREAK_ROLEPLAY,
+  POLICY_AND_AUTHORITY_HIJACK,
+  FEW_SHOT_HIJACK,
+  OUTPUT_HIJACK,
+  OUTPUT_LITERAL_HIJACK,
+  CODE_COMPLETION_JAILBREAK,
+  MULTILINGUAL_OVERRIDE,
+  TOOL_CALL_INJECTION,
+  WALLET_ASSET_COMMAND,
+  WALLET_DESTINATION_COMMAND,
+];
+const SCRUB_PATTERNS = ALL_COMMAND_PATTERNS.map(pattern => {
+  const flags = (pattern.multiline ? 'gm' : 'g') + (pattern.ignoreCase ? 'i' : '') + (pattern.unicode ? 'u' : '') + (pattern.dotAll ? 's' : '');
+  return new RegExp(pattern.source, flags);
+});
 
 function deobfuscate(value: string): string {
   // Collapse single-character spaced/punctuated words like "i g n o r e" or "i.g.n.o.r.e" or "i-g-n-o-r-e"
@@ -170,19 +196,20 @@ function matchesWalletCommand(value: string): boolean {
 function commandThreats(value: string): string[] {
   const normalized = value.normalize('NFKC');
   const deobf = deobfuscate(normalized);
+  const hasDeobf = deobf !== normalized;
   const found: string[] = [];
-  if (ROLE_DELIMITER.test(normalized) || ROLE_PREFIX.test(normalized) || ROLE_DELIMITER.test(deobf) || ROLE_PREFIX.test(deobf)) found.push('role_delimiter_override');
-  if (MARKDOWN_DELIMITER_ESCAPE.test(normalized) || MARKDOWN_DELIMITER_ESCAPE.test(deobf)) found.push('markdown_delimiter_escape');
-  if (STRUCTURED_ROLE_INJECTION.test(normalized) || STRUCTURED_ROLE_INJECTION.test(deobf)) found.push('structured_role_injection');
-  if (INSTRUCTION_OVERRIDE.test(normalized) || INSTRUCTION_OVERRIDE.test(deobf) || POLITE_EXFILTRATION.test(normalized) || POLITE_EXFILTRATION.test(deobf)) found.push('instruction_override');
-  if (JAILBREAK_ROLEPLAY.test(normalized) || JAILBREAK_ROLEPLAY.test(deobf)) found.push('jailbreak_roleplay_detected');
-  if (POLICY_AND_AUTHORITY_HIJACK.test(normalized) || POLICY_AND_AUTHORITY_HIJACK.test(deobf)) found.push('policy_authority_hijack');
-  if (FEW_SHOT_HIJACK.test(normalized) || FEW_SHOT_HIJACK.test(deobf)) found.push('few_shot_context_hijack');
-  if (OUTPUT_HIJACK.test(normalized) || OUTPUT_HIJACK.test(deobf) || OUTPUT_LITERAL_HIJACK.test(normalized)) found.push('output_exclusivity_hijack');
-  if (CODE_COMPLETION_JAILBREAK.test(normalized) || CODE_COMPLETION_JAILBREAK.test(deobf)) found.push('code_completion_jailbreak');
+  if (ROLE_DELIMITER.test(normalized) || ROLE_PREFIX.test(normalized) || (hasDeobf && (ROLE_DELIMITER.test(deobf) || ROLE_PREFIX.test(deobf)))) found.push('role_delimiter_override');
+  if (MARKDOWN_DELIMITER_ESCAPE.test(normalized) || (hasDeobf && MARKDOWN_DELIMITER_ESCAPE.test(deobf))) found.push('markdown_delimiter_escape');
+  if (STRUCTURED_ROLE_INJECTION.test(normalized) || (hasDeobf && STRUCTURED_ROLE_INJECTION.test(deobf))) found.push('structured_role_injection');
+  if (INSTRUCTION_OVERRIDE.test(normalized) || POLITE_EXFILTRATION.test(normalized) || (hasDeobf && (INSTRUCTION_OVERRIDE.test(deobf) || POLITE_EXFILTRATION.test(deobf)))) found.push('instruction_override');
+  if (JAILBREAK_ROLEPLAY.test(normalized) || (hasDeobf && JAILBREAK_ROLEPLAY.test(deobf))) found.push('jailbreak_roleplay_detected');
+  if (POLICY_AND_AUTHORITY_HIJACK.test(normalized) || (hasDeobf && POLICY_AND_AUTHORITY_HIJACK.test(deobf))) found.push('policy_authority_hijack');
+  if (FEW_SHOT_HIJACK.test(normalized) || (hasDeobf && FEW_SHOT_HIJACK.test(deobf))) found.push('few_shot_context_hijack');
+  if (OUTPUT_HIJACK.test(normalized) || OUTPUT_LITERAL_HIJACK.test(normalized) || (hasDeobf && OUTPUT_HIJACK.test(deobf))) found.push('output_exclusivity_hijack');
+  if (CODE_COMPLETION_JAILBREAK.test(normalized) || (hasDeobf && CODE_COMPLETION_JAILBREAK.test(deobf))) found.push('code_completion_jailbreak');
   if (MULTILINGUAL_OVERRIDE.test(normalized)) found.push('multilingual_instruction_override');
-  if (TOOL_CALL_INJECTION.test(normalized) || TOOL_CALL_INJECTION.test(deobf)) found.push('tool_call_injection');
-  if (matchesWalletCommand(normalized) || matchesWalletCommand(deobf)) found.push('wallet_transfer_command');
+  if (TOOL_CALL_INJECTION.test(normalized) || (hasDeobf && TOOL_CALL_INJECTION.test(deobf))) found.push('tool_call_injection');
+  if (matchesWalletCommand(normalized) || (hasDeobf && matchesWalletCommand(deobf))) found.push('wallet_transfer_command');
   for (const t of checkEncodedInjections(value)) found.push(t);
   return found;
 }
@@ -192,11 +219,20 @@ function hiddenDeclaration(value: string): boolean {
 }
 
 function extractPlainText(content: string, findings: Set<string>): { allText: string; visibleText: string } {
+  const hasTag = content.includes('<');
+  if (!hasTag && !HTML_ENTITY_NAMED.test(content)) {
+    return { allText: content, visibleText: content };
+  }
   const $ = load(content);
   // Newlines preserve instruction boundaries, including entity-encoded commands in separate blocks.
-  $(BLOCK_ELEMENTS).before('\n').after('\n');
-  $('br').replaceWith('\n');
+  if (hasTag) {
+    $(BLOCK_ELEMENTS).before('\n').after('\n');
+    $('br').replaceWith('\n');
+  }
   const allText = $.root().text();
+  if (!hasTag) {
+    return { allText, visibleText: allText };
+  }
 
   // Handle inline declarations and simple embedded CSS selectors before removing stylesheets.
   const stylesheetRules = $('style').map((_, element) => $(element).text()).get().join('\n');
@@ -225,14 +261,16 @@ function extractPlainText(content: string, findings: Set<string>): { allText: st
   if ($(ACTIVE_ELEMENTS).not('head').length) {
     findings.add('active_html_removed');
   }
-  $('*').each((_, element) => {
-    if (!('attribs' in element)) return;
-    for (const [name, value] of Object.entries(element.attribs)) {
-      if (/^on/i.test(name) || /^(?:href|src|action)$/i.test(name) && /^\s*(?:javascript:|data:text\/html)/i.test(value)) {
-        findings.add('unsafe_html_attributes_removed');
+  if (UNSAFE_ATTR_HINT.test(content)) {
+    $('*').each((_, element) => {
+      if (!('attribs' in element)) return;
+      for (const [name, value] of Object.entries(element.attribs)) {
+        if (/^on/i.test(name) || /^(?:href|src|action)$/i.test(name) && /^\s*(?:javascript:|data:text\/html)/i.test(value)) {
+          findings.add('unsafe_html_attributes_removed');
+        }
       }
-    }
-  });
+    });
+  }
   $(ACTIVE_ELEMENTS).remove();
   if (/<\s*\/?[a-z][^>]*>/i.test(content)) findings.add('html_markup_removed');
   return { allText, visibleText: $.root().text() };
@@ -246,27 +284,9 @@ function scrubCommandLines(value: string): string {
   const blockedMarker = '[CANARY_REMOVED_INSTRUCTION]';
   let marked = value.normalize('NFKC');
   // Mark every line touched by a match: a command may be split over several lines.
-  const patterns = [
-    ROLE_DELIMITER,
-    ROLE_PREFIX,
-    MARKDOWN_DELIMITER_ESCAPE,
-    STRUCTURED_ROLE_INJECTION,
-    INSTRUCTION_OVERRIDE,
-    POLITE_EXFILTRATION,
-    JAILBREAK_ROLEPLAY,
-    POLICY_AND_AUTHORITY_HIJACK,
-    FEW_SHOT_HIJACK,
-    OUTPUT_HIJACK,
-    OUTPUT_LITERAL_HIJACK,
-    CODE_COMPLETION_JAILBREAK,
-    MULTILINGUAL_OVERRIDE,
-    TOOL_CALL_INJECTION,
-    WALLET_ASSET_COMMAND,
-    WALLET_DESTINATION_COMMAND,
-  ];
-  for (const pattern of patterns) {
-    const flags = (pattern.multiline ? 'gm' : 'g') + (pattern.ignoreCase ? 'i' : '') + (pattern.unicode ? 'u' : '') + (pattern.dotAll ? 's' : '');
-    marked = marked.replace(new RegExp(pattern.source, flags), match => match.split('\n').map(() => blockedMarker).join('\n'));
+  for (const regex of SCRUB_PATTERNS) {
+    regex.lastIndex = 0;
+    marked = marked.replace(regex, match => match.split('\n').map(() => blockedMarker).join('\n'));
   }
   return tidy(marked.split('\n').filter(line => !line.includes(blockedMarker)).join('\n'));
 }
@@ -310,11 +330,13 @@ export function sanitizeContent(content: string, strictMode = true): SanitizeRes
     normalizedContent = strippedInvisible;
   }
   const { allText, visibleText } = extractPlainText(normalizedContent, findings);
-  const detectedCommands = new Set([
-    ...commandThreats(normalizedContent),
-    ...commandThreats(allText),
-    ...commandThreats(visibleText),
-  ]);
+  const detectedCommands = new Set(commandThreats(normalizedContent));
+  if (allText !== normalizedContent) {
+    for (const threat of commandThreats(allText)) detectedCommands.add(threat);
+  }
+  if (visibleText !== allText && visibleText !== normalizedContent) {
+    for (const threat of commandThreats(visibleText)) detectedCommands.add(threat);
+  }
   for (const decodedTag of unicodeTagPayloads) {
     const tagThreats = commandThreats(decodedTag);
     for (const threat of tagThreats) {
@@ -326,7 +348,7 @@ export function sanitizeContent(content: string, strictMode = true): SanitizeRes
   }
   for (const threat of detectedCommands) findings.add(threat);
   const injectionDetected = detectedCommands.size > 0;
-  const addresses = extractAddresses(`${normalizedContent}\n${allText}`);
+  const addresses = extractAddresses(allText === normalizedContent ? normalizedContent : `${normalizedContent}\n${allText}`);
   let sanitizedContent = tidy(visibleText);
   if (injectionDetected) {
     sanitizedContent = strictMode
@@ -334,8 +356,10 @@ export function sanitizeContent(content: string, strictMode = true): SanitizeRes
       : scrubCommandLines(sanitizedContent);
   }
   // Remove any surviving role tokens even when formatting split a risky command across lines.
-  sanitizedContent = sanitizedContent.replace(new RegExp(ROLE_DELIMITER.source, 'gi'), '');
-  sanitizedContent = tidy(sanitizedContent);
+  if (sanitizedContent) {
+    ROLE_DELIMITER_GLOBAL.lastIndex = 0;
+    sanitizedContent = tidy(sanitizedContent.replace(ROLE_DELIMITER_GLOBAL, ''));
+  }
 
   let riskScore = 0;
   if (findings.has('html_markup_removed')) riskScore = 0.05;
@@ -358,38 +382,33 @@ export function sanitizeContent(content: string, strictMode = true): SanitizeRes
   if (detectedCommands.has('encoded_role_delimiter') || detectedCommands.has('encoded_instruction_override') || detectedCommands.has('encoded_jailbreak_roleplay') || detectedCommands.has('encoded_wallet_command') || detectedCommands.has('encoded_tool_call_injection')) riskScore = Math.max(riskScore, 0.98);
   for (const address of addresses) riskScore = Math.max(riskScore, address.risk_score);
 
+  const inputSha = crypto.createHash('sha256').update(content).digest('hex');
+  const outputSha = sanitizedContent === content ? inputSha : crypto.createHash('sha256').update(sanitizedContent).digest('hex');
+  const secretKey = process.env.CANARY_ATTESTATION_SECRET || null;
+  const keyId = process.env.CANARY_EXPECTED_KEY_ID || 'canary-primary-key-1';
+  const scope = '/v1/sanitize';
+  const timestamp = new Date().toISOString();
+  const payload = `CANARY_ATTESTATION:v1:${keyId}:${scope}:${timestamp}:${inputSha}:${outputSha}`;
+  const signature = secretKey ? crypto.createHmac('sha256', secretKey).update(payload).digest('hex') : null;
+
   return {
     status: injectionDetected && strictMode ? 'blocked' : findings.size ? 'sanitized' : 'clean',
     risk_score: riskScore,
     injection_detected: injectionDetected,
     threats_neutralized: [...findings].sort(),
     sanitized_content: sanitizedContent,
-    safety_receipt: (() => {
-      const inputSha = crypto.createHash('sha256').update(content).digest('hex');
-      const outputSha = crypto.createHash('sha256').update(sanitizedContent).digest('hex');
-      return `canary-v1-${inputSha.slice(0, 16)}-${outputSha.slice(0, 16)}`;
-    })(),
-    safety_receipt_details: (() => {
-      const secretKey = process.env.CANARY_ATTESTATION_SECRET || null;
-      const keyId = process.env.CANARY_EXPECTED_KEY_ID || 'canary-primary-key-1';
-      const scope = '/v1/sanitize';
-      const timestamp = new Date().toISOString();
-      const inputSha = crypto.createHash('sha256').update(content).digest('hex');
-      const outputSha = crypto.createHash('sha256').update(sanitizedContent).digest('hex');
-      const payload = `CANARY_ATTESTATION:v1:${keyId}:${scope}:${timestamp}:${inputSha}:${outputSha}`;
-      const signature = secretKey ? crypto.createHmac('sha256', secretKey).update(payload).digest('hex') : null;
-      return {
-        keyId,
-        key_id: keyId,
-        algorithm: secretKey ? 'HMAC-SHA256' : 'none',
-        attestation_mode: secretKey ? 'cryptographic-mac' : 'unkeyed-integrity-checksum',
-        scope,
-        timestamp,
-        input_sha256: inputSha,
-        output_sha256: outputSha,
-        signature
-      };
-    })(),
+    safety_receipt: `canary-v1-${inputSha.slice(0, 16)}-${outputSha.slice(0, 16)}`,
+    safety_receipt_details: {
+      keyId,
+      key_id: keyId,
+      algorithm: secretKey ? 'HMAC-SHA256' : 'none',
+      attestation_mode: secretKey ? 'cryptographic-mac' : 'unkeyed-integrity-checksum',
+      scope,
+      timestamp,
+      input_sha256: inputSha,
+      output_sha256: outputSha,
+      signature,
+    },
     crypto_addresses: addresses,
     recommended_actions: addresses.length ? [
       {
