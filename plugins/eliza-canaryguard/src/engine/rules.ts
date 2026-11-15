@@ -53,59 +53,35 @@ export function neutralizeCommandsInPlace(value: string): string {
   return text;
 }
 
+import { sanitizeContentLocal } from '../local_sanitizer.js';
+
 export function inspectContent(content: string, strictMode = false): SanitizeResult {
-  const findings = new Set<string>();
-  const normalizedContent = content.replace(INVISIBLE_CHARACTERS, '');
-  if (normalizedContent !== content) findings.add('concealed_unicode_removed');
-
-  // Strict HTML tag stripping without corrupting math inequalities (e.g. 5 < 6 and 7 > 4)
-  const htmlTagPattern = /<\/?(?:[a-zA-Z][a-zA-Z0-9:-]*)(?:\s+[^<>]*)?\/?>|<!--[\s\S]*?-->/gi;
-  if (htmlTagPattern.test(normalizedContent)) findings.add('html_markup_removed');
-
-  const threats = commandThreats(normalizedContent);
-  for (const threat of threats) findings.add(threat);
-
-  const injectionDetected = threats.length > 0;
-  const addresses = extractAddresses(normalizedContent);
-
-  let sanitizedContent = normalizedContent;
-  if (injectionDetected) {
-    sanitizedContent = strictMode ? '' : neutralizeCommandsInPlace(sanitizedContent);
-  }
-
-  let riskScore = 0.01;
-  if (findings.has('html_markup_removed')) riskScore = 0.05;
-  if (findings.has('concealed_unicode_removed')) riskScore = Math.max(riskScore, 0.2);
-  if (threats.includes('role_delimiter_override')) riskScore = Math.max(riskScore, 0.85);
-  if (threats.includes('instruction_override')) riskScore = Math.max(riskScore, 0.95);
-  if (threats.includes('wallet_transfer_command')) riskScore = Math.max(riskScore, 0.98);
-  for (const addr of addresses) riskScore = Math.max(riskScore, addr.risk_score);
-
+  const res = sanitizeContentLocal(content, strictMode);
   return {
-    status: injectionDetected && strictMode ? 'blocked' : findings.size ? 'sanitized' : 'clean',
-    risk_score: riskScore,
-    injection_detected: injectionDetected,
-    threats_neutralized: [...findings].sort(),
-    sanitized_content: sanitizedContent,
-    safety_receipt: 'local-deterministic-rule-execution',
-    crypto_addresses: addresses,
-    recommended_actions: addresses.length ? [
-      {
-        service: 'rugshield-402',
-        description: 'Verify token contract bytecode, honeypot risk, and DEX liquidity depth on Base before trading',
-        url: 'https://rugshield-402.onrender.com/v1/scan',
-        price: '0.010 USDC',
-      },
-    ] : undefined,
-    inspection: {
-      method: 'deterministic-rules',
-      guaranteed_safe: false,
-      risk_score_semantics: 'heuristic severity, not a probability',
-      limitations: [
-        'Does not detect every obfuscated, multilingual, or novel instruction attack.',
-        'Address scores reflect text context and do not verify ownership, reputation, or contract safety.',
-        'Treat sanitized content as untrusted data; keep agent instructions and wallet authorization separate.',
-      ],
-    },
+    status: res.status,
+    risk_score: res.risk_score,
+    injection_detected: res.injection_detected,
+    threats_neutralized: res.threats_neutralized,
+    sanitized_content: res.sanitized_content,
+    safety_receipt: res.safety_receipt,
+    crypto_addresses: res.crypto_addresses.map((addr) => ({
+      address: addr.address,
+      risk_score: addr.risk_score,
+      reasons: addr.reasons,
+    })),
+    recommended_actions: res.crypto_addresses.length
+      ? [
+          {
+            service: 'rugshield-402',
+            description: 'Verify token contract bytecode, honeypot risk, and DEX liquidity depth on Base before trading',
+            url: 'https://rugshield-402.onrender.com/v1/scan',
+            price: '0.010 USDC',
+          },
+        ]
+      : undefined,
+    inspection: res.inspection,
+    payment_mode: 'local_fast',
+    latency_ms: res.latency_ms,
+    mode: res.mode,
   };
 }

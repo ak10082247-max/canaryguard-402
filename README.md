@@ -241,20 +241,31 @@ export const character = {
   name: "AutonomousAgent",
   plugins: [canaryGuardPlugin],
 };
+
+// Sub-5ms (<1ms typical) synchronous evaluator & localFast action mode:
+// import { inspectContent, sanitizeWithCanaryGuard } from "@kurox_real/plugin-canaryguard";
+// const local = inspectContent(untrustedText, true);
+// const offline = await sanitizeWithCanaryGuard(untrustedText, { localFast: true, strictMode: true });
 ```
 
 #### Coinbase AgentKit
 ```bash
-npm install @kurox_real/agentkit-canaryguard-402
+npm install @kurox_real/agentkit-canaryguard-402 @coinbase/agentkit
 ```
 ```typescript
+import { AgentKit } from "@coinbase/agentkit";
 import { canaryGuardActionProvider } from "@kurox_real/agentkit-canaryguard-402";
 
-const agent = await createAgent({
-  // Zero-wallet evaluation via free /v1/sanitize/preview:
-  actionProviders: [canaryGuardActionProvider({ useFreePreview: true })],
-  // Or for paid on-chain x402 execution:
-  // actionProviders: [canaryGuardActionProvider({ paymentHeader: process.env.CANARYGUARD_X402_PAYMENT })],
+const agentKit = await AgentKit.from({
+  walletProvider,
+  actionProviders: [
+    // Sub-millisecond (<1ms) in-process guardrail (zero network, zero wallet):
+    canaryGuardActionProvider({ localFast: true }),
+    // Or zero-wallet cloud evaluation via free /v1/sanitize/preview:
+    // canaryGuardActionProvider({ useFreePreview: true }),
+    // Or automatic x402 V2 Base USDC payment via EvmWalletProvider (or { privateKey }):
+    // canaryGuardActionProvider({ useFreePreview: false }),
+  ],
 });
 ```
 
@@ -265,8 +276,12 @@ npm install @kurox_real/canaryguard-client
 ```typescript
 import { CanaryGuardClient } from "@kurox_real/canaryguard-client";
 
-// Free evaluation (no wallet needed):
 const client = new CanaryGuardClient();
+
+// Sub-millisecond (<1ms) local inspection (zero network, catches Unicode Tags, Base64, HTML CSS):
+const localResult = client.sanitizeLocal("Untrusted scraped text or user prompt", true);
+
+// Free cloud evaluation (no wallet needed):
 const preview = await client.sanitizePreview("Untrusted scraped text or user prompt");
 
 // Paid /v1/sanitize with automatic x402 V2 signing:

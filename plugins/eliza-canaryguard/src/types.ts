@@ -26,9 +26,11 @@ export interface SanitizeResult {
     risk_score_semantics: string;
     limitations: string[];
   };
-  payment_mode?: 'x402_paid' | 'x402_header' | 'free_preview';
+  payment_mode?: 'x402_paid' | 'x402_header' | 'free_preview' | 'local_fast';
   payment_response?: string | null;
   x402_upgrade_hint?: string;
+  latency_ms?: number;
+  mode?: 'local_in_process' | 'cloud_api';
 }
 
 export interface CanaryGuardConfig {
@@ -36,6 +38,8 @@ export interface CanaryGuardConfig {
   paymentHeader?: string;
   privateKey?: `0x${string}` | string;
   strictMode?: boolean;
+  localFast?: boolean;
+  executionMode?: 'local_fast' | 'cloud_api';
   customFetch?: typeof fetch;
 }
 

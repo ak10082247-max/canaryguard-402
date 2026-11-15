@@ -1,7 +1,9 @@
+import { performance } from 'node:perf_hooks';
 import { x402Client } from '@x402/core/client';
 import { ExactEvmScheme } from '@x402/evm/exact/client';
 import { wrapFetchWithPayment } from '@x402/fetch';
 import { privateKeyToAccount } from 'viem/accounts';
+import { inspectContent } from './engine/rules.js';
 import type { CanaryGuardConfig, SanitizeResult } from './types.js';
 
 export const CANARYGUARD_DEFAULT_URL = 'https://canaryguard-402.onrender.com';
@@ -47,11 +49,18 @@ export function resolveCanaryGuardConfig(config?: CanaryGuardConfig, runtime?: a
     config?.paymentHeader ||
     readSetting(runtime, ['CANARYGUARD_PAYMENT_HEADER', 'PAYMENT_SIGNATURE']);
 
+  const envLocalFast = readSetting(runtime, ['CANARYGUARD_LOCAL_FAST']) === '1';
+  const localFast =
+    config?.localFast === true ||
+    config?.executionMode === 'local_fast' ||
+    (envLocalFast && config?.executionMode !== 'cloud_api');
+
   return {
     serviceUrl,
     privateKey,
     paymentHeader,
     strictMode: config?.strictMode ?? false,
+    localFast,
     customFetch: config?.customFetch ?? fetch,
   };
 }
@@ -87,6 +96,15 @@ export async function sanitizeWithCanaryGuard(
   runtime?: any,
 ): Promise<SanitizeResult> {
   const resolved = resolveCanaryGuardConfig(config, runtime);
+  if (
+    config?.localFast === true ||
+    config?.executionMode === 'local_fast' ||
+    (resolved.localFast && !resolved.privateKey && !resolved.paymentHeader)
+  ) {
+    return inspectContent(content, resolved.strictMode);
+  }
+
+  const startedAt = performance.now();
   const body = JSON.stringify({
     content,
     strict_mode: resolved.strictMode,
@@ -107,6 +125,8 @@ export async function sanitizeWithCanaryGuard(
     return {
       ...data,
       payment_mode: 'x402_paid',
+      mode: 'cloud_api',
+      latency_ms: Number((performance.now() - startedAt).toFixed(3)),
       payment_response: res.headers.get('PAYMENT-RESPONSE') ?? res.headers.get('X-PAYMENT-RESPONSE') ?? null,
     };
   }
@@ -129,6 +149,8 @@ export async function sanitizeWithCanaryGuard(
     return {
       ...data,
       payment_mode: 'x402_header',
+      mode: 'cloud_api',
+      latency_ms: Number((performance.now() - startedAt).toFixed(3)),
       payment_response: res.headers.get('PAYMENT-RESPONSE') ?? res.headers.get('X-PAYMENT-RESPONSE') ?? null,
     };
   }
@@ -146,6 +168,8 @@ export async function sanitizeWithCanaryGuard(
   return {
     ...data,
     payment_mode: 'free_preview',
+    mode: 'cloud_api',
+    latency_ms: Number((performance.now() - startedAt).toFixed(3)),
     x402_upgrade_hint: X402_UPGRADE_HINT,
   };
 }

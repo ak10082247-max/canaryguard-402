@@ -1,6 +1,6 @@
 {
   "name": "@kurox_real/plugin-canaryguard",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "ElizaOS plugin for CanaryGuard 402: deterministic prompt injection defense and honeypot scrubbing on Base mainnet via x402.",
   "type": "module",
   "main": "dist/index.js",
@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "node --test test/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

@@ -1,11 +1,25 @@
+import { performance } from "node:perf_hooks";
 import { z } from "zod";
 import { x402Client, wrapFetchWithPayment } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { privateKeyToAccount } from "viem/accounts";
+import { sanitizeContentLocal } from "./local_sanitizer.js";
+
+export { sanitizeContentLocal, type LocalSanitizeResponse } from "./local_sanitizer.js";
 
 const EXPECTED_MERCHANT = "0x80e0ae84679b7f11be171daadd492fbecf628cd6";
 const BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const MAX_PER_CALL_MICRO_USDC = 50_000n;
+const LOCAL_UPGRADE_HINT =
+  "Executed locally in-process (<1ms). Omit localFast (and pass { privateKey } or an EvmWalletProvider with { useFreePreview: false }) for cloud verification and smart-contract honeypot telemetry.";
+
+export interface AgentKitWalletProviderLike {
+  getAddress?: () => string;
+  getNetwork?: () => { protocolFamily?: string; networkId?: string; chainId?: string };
+  toSigner?: () => any;
+}
+
+export type X402EvmSignerLike = ConstructorParameters<typeof ExactEvmScheme>[0];
 
 export const CanaryGuardSanitizeInputSchema = z.object({
   content: z
@@ -44,7 +58,9 @@ export interface CanaryGuardSanitizeOutput {
     risk_score_semantics: string;
     limitations: string[];
   };
-  paymentMode?: "x402_paid" | "x402_header" | "free_preview";
+  paymentMode?: "x402_paid" | "x402_header" | "free_preview" | "local_fast";
+  executionMode?: "local_in_process" | "cloud_api";
+  latencyMs?: number;
   x402UpgradeHint?: string;
 }
 
@@ -52,7 +68,12 @@ export interface CanaryGuardActionProviderConfig {
   hostUrl?: string;
   paymentHeader?: string;
   privateKey?: `0x${string}` | string;
+  signer?: X402EvmSignerLike;
+  useWalletSigner?: boolean;
   useFreePreview?: boolean;
+  localFast?: boolean;
+  executionMode?: "local_fast" | "cloud_api";
+  outputFormat?: "json" | "object";
   customFetch?: typeof fetch;
 }
 
@@ -72,10 +93,9 @@ function resolvePrivateKey(explicitKey?: string): `0x${string}` | undefined {
   return undefined;
 }
 
-function createPayingFetch(privateKey: `0x${string}`, baseFetch: typeof fetch = fetch): typeof fetch {
-  const account = privateKeyToAccount(privateKey);
+function createPayingFetchFromSigner(signer: X402EvmSignerLike, baseFetch: typeof fetch = fetch): typeof fetch {
   const client = new x402Client();
-  client.register("eip155:8453", new ExactEvmScheme(account));
+  client.register("eip155:8453", new ExactEvmScheme(signer));
   client.onBeforePaymentCreation(async (context) => {
     const req = context.selectedRequirements;
     if (req.network !== "eip155:8453") {
@@ -95,33 +115,89 @@ function createPayingFetch(privateKey: `0x${string}`, baseFetch: typeof fetch = 
 }
 
 /**
- * Execute prompt-injection inspection and sanitization via CanaryGuard 402 microservice on Base.
+ * Deterministic sub-millisecond local sanitization (zero network, zero wallet needed).
+ */
+export function executeCanaryGuardSanitizeLocal(params: CanaryGuardSanitizeInput): CanaryGuardSanitizeOutput {
+  const parsed = CanaryGuardSanitizeInputSchema.parse(params);
+  const res = sanitizeContentLocal(parsed.content, parsed.strictMode !== false);
+  const recommendedActions =
+    res.crypto_addresses.length > 0
+      ? [
+          {
+            service: "rugshield-402",
+            description:
+              "Run on-chain honeypot simulation and tax verification for extracted EVM addresses before signing transactions.",
+            url: "https://rugshield-402.onrender.com/v1/honeypot",
+            price: "0.010 USDC",
+          },
+        ]
+      : undefined;
+
+  return {
+    status: res.status,
+    riskScore: res.risk_score,
+    injectionDetected: res.injection_detected,
+    threatsNeutralized: res.threats_neutralized,
+    cryptoAddresses: res.crypto_addresses.map((addr) => ({
+      address: addr.address,
+      risk_score: addr.risk_score,
+      reasons: addr.reasons,
+    })),
+    sanitizedContent: res.sanitized_content,
+    safetyReceipt: res.safety_receipt,
+    recommendedActions,
+    inspection: res.inspection,
+    paymentMode: "local_fast",
+    executionMode: "local_in_process",
+    latencyMs: res.latency_ms,
+    x402UpgradeHint: LOCAL_UPGRADE_HINT,
+  };
+}
+
+/**
+ * Execute prompt-injection inspection and sanitization via CanaryGuard 402 (local sub-1ms or microservice on Base).
  */
 export async function executeCanaryGuardSanitize(
   params: CanaryGuardSanitizeInput,
   options?: CanaryGuardActionProviderConfig
 ): Promise<CanaryGuardSanitizeOutput> {
+  const privateKey = resolvePrivateKey(options?.privateKey);
+  const signer = options?.signer ?? (privateKey ? privateKeyToAccount(privateKey) : undefined);
+  const paymentHeader =
+    options?.paymentHeader ||
+    (typeof process !== "undefined" ? process.env?.CANARYGUARD_PAYMENT_HEADER : undefined);
+  const envLocalFast =
+    typeof process !== "undefined" && process.env?.CANARYGUARD_LOCAL_FAST === "1";
+
+  const shouldRunLocal =
+    options?.localFast === true ||
+    options?.executionMode === "local_fast" ||
+    (envLocalFast && options?.useFreePreview !== true && !signer && !paymentHeader);
+
+  if (shouldRunLocal) {
+    return executeCanaryGuardSanitizeLocal(params);
+  }
+
+  const startedAt = performance.now();
   const host = (
     options?.hostUrl ||
-    process.env.CANARYGUARD_URL ||
+    (typeof process !== "undefined" ? process.env?.CANARYGUARD_URL : undefined) ||
     "https://canaryguard-402.onrender.com"
   ).replace(/\/$/, "");
 
   const baseFetch = options?.customFetch ?? fetch;
-  const privateKey = resolvePrivateKey(options?.privateKey);
-  const paymentHeader = options?.paymentHeader || process.env.CANARYGUARD_PAYMENT_HEADER;
   const usePreview =
     options?.useFreePreview === true ||
-    (!privateKey && !paymentHeader && options?.useFreePreview !== false);
+    (!signer && !paymentHeader && options?.useFreePreview !== false);
 
   const url = `${host}${usePreview ? "/v1/sanitize/preview" : "/v1/sanitize"}`;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (paymentHeader && !privateKey && !usePreview) {
+  if (paymentHeader && !signer && !usePreview) {
     headers["PAYMENT-SIGNATURE"] = paymentHeader;
     headers["X-PAYMENT"] = paymentHeader;
   }
 
-  const caller = privateKey && !usePreview ? createPayingFetch(privateKey, baseFetch) : baseFetch;
+  const caller = signer && !usePreview ? createPayingFetchFromSigner(signer, baseFetch) : baseFetch;
   const res = await caller(url, {
     method: "POST",
     headers,
@@ -133,7 +209,7 @@ export async function executeCanaryGuardSanitize(
 
   if (res.status === 402) {
     throw new Error(
-      `CanaryGuard 402 Payment Required ($0.010 USDC via x402). Pass options.privateKey or set X402_PRIVATE_KEY (Base USDC, 0 ETH gas) for automatic /v1/sanitize signing, or omit useFreePreview: false to evaluate via /v1/sanitize/preview.`
+      `CanaryGuard 402 Payment Required ($0.010 USDC via x402). Pass options.privateKey, an AgentKit EvmWalletProvider with { useFreePreview: false }, or set X402_PRIVATE_KEY (Base USDC, 0 ETH gas) for automatic /v1/sanitize signing, or omit useFreePreview: false to evaluate via /v1/sanitize/preview.`
     );
   }
 
@@ -153,7 +229,9 @@ export async function executeCanaryGuardSanitize(
     safetyReceipt: data.safety_receipt,
     recommendedActions: data.recommended_actions,
     inspection: data.inspection,
-    paymentMode: usePreview ? "free_preview" : privateKey ? "x402_paid" : "x402_header",
+    paymentMode: usePreview ? "free_preview" : signer ? "x402_paid" : "x402_header",
+    executionMode: "cloud_api",
+    latencyMs: Number((performance.now() - startedAt).toFixed(3)),
     x402UpgradeHint: usePreview
       ? "Evaluated via free /v1/sanitize/preview. Set X402_PRIVATE_KEY or pass { privateKey } (Base USDC, 0 ETH gas) to run full paid /v1/sanitize."
       : undefined,
@@ -164,21 +242,51 @@ export async function executeCanaryGuardSanitize(
  * Creates a Coinbase AgentKit ActionProvider for CanaryGuard 402.
  */
 export function canaryGuardActionProvider(config?: CanaryGuardActionProviderConfig) {
-  const action = {
-    name: "canary_sanitize",
-    description:
-      "Deterministic prompt-injection firewall and honeypot scrubber on Base via x402 (0.010 USDC). Auto-pays via @x402/fetch when X402_PRIVATE_KEY is set, or evaluates via /v1/sanitize/preview.",
-    schema: CanaryGuardSanitizeInputSchema,
-    invoke: async (args: CanaryGuardSanitizeInput) => {
-      return await executeCanaryGuardSanitize(args, config);
-    },
+  const buildActions = (walletProvider?: AgentKitWalletProviderLike) => {
+    let resolvedOptions: CanaryGuardActionProviderConfig | undefined = config;
+    const canAttachWalletSigner =
+      Boolean(walletProvider && typeof walletProvider.toSigner === "function") &&
+      !config?.signer &&
+      !resolvePrivateKey(config?.privateKey) &&
+      !config?.paymentHeader &&
+      !config?.localFast &&
+      config?.executionMode !== "local_fast" &&
+      config?.useFreePreview !== true &&
+      (config?.useWalletSigner === true || config?.useFreePreview === false);
+
+    if (canAttachWalletSigner && walletProvider?.toSigner) {
+      resolvedOptions = {
+        ...config,
+        signer: walletProvider.toSigner(),
+      };
+    }
+
+    const action = {
+      name: "canary_sanitize",
+      description:
+        "Deterministic prompt-injection firewall and honeypot scrubber (<1ms local mode with { localFast: true }, free /v1/sanitize/preview, or paid Base x402 via EvmWalletProvider / X402_PRIVATE_KEY).",
+      schema: CanaryGuardSanitizeInputSchema,
+      invoke: async (argsOrWallet: CanaryGuardSanitizeInput, maybeArgs?: CanaryGuardSanitizeInput): Promise<string> => {
+        const parsedArgs = (maybeArgs !== undefined ? maybeArgs : argsOrWallet) as CanaryGuardSanitizeInput;
+        const result = await executeCanaryGuardSanitize(parsedArgs, resolvedOptions);
+        if (config?.outputFormat === "object") {
+          return result as unknown as string;
+        }
+        return JSON.stringify(result, null, 2);
+      },
+    };
+
+    return [action];
   };
+
+  const defaultActions = buildActions(undefined);
 
   return {
     name: "canaryguard",
     actionProviderName: "canaryguard",
-    supportsNetwork: () => true,
-    getActions: () => [action],
-    actions: [action],
+    actionProviders: [] as never[],
+    supportsNetwork: (_network?: { protocolFamily?: string; networkId?: string; chainId?: string }) => true,
+    getActions: (walletProvider?: AgentKitWalletProviderLike) => buildActions(walletProvider),
+    actions: defaultActions,
   };
 }

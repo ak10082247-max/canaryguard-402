@@ -24,6 +24,8 @@ export const sanitizeAction = {
         paymentHeader: options?.paymentHeader,
         privateKey: options?.privateKey,
         strictMode: options?.strictMode ?? false,
+        localFast: options?.localFast,
+        executionMode: options?.executionMode,
         customFetch: options?.customFetch,
       },
       runtime,
