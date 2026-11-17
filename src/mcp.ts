@@ -91,6 +91,21 @@ export async function mcpHandler(resourceServer: x402ResourceServer, publicUrl: 
       }
       mcp.registerTool(toolName, { description: `${spec.description} Price: ${spec.priceUsd} USDC on Base or Solana.`, inputSchema: spec.path === '/v1/sanitize' ? Input.shape : shape,
         annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true } }, async (args: any, extra: any) => {
+        if (res.locals?.kuroxBearerAuth) {
+          try {
+            const result = await execute(spec.path, args);
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+              structuredContent: result,
+              _meta: { 'kurox/auth': { mode: 'bearer-api-key', tier: res.locals.kuroxBearerAuth.tier, sid: res.locals.kuroxBearerAuth.sid } },
+            };
+          } catch (error) {
+            const details = error instanceof ExecutionError
+              ? { error: error.code, message: error.message, charged: false }
+              : { error: 'execution_failed', charged: false };
+            return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify(details) }], structuredContent: details };
+          }
+        }
         const payment = extra._meta?.['x402/payment'];
         if (!payment) return wrapped(args, extra);
         if(!await verifyPaymentOwnership(payment)) return {isError:true,content:[{type:'text' as const,text:'invalid_payment_ownership'}]};

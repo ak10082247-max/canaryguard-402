@@ -36,6 +36,7 @@ import { basePayaiPaymentGate } from './base_payai_payment.js';
 import { mcpHandler } from './mcp.js';
 import { sendRevenueAlert } from './alerts.js';
 import { recordDeliveryMiddleware, getRecentDeliveries, getPaidDeliveries } from './delivery_recorder.js';
+import { authenticateKuroxHeaders } from './kurox_auth.js';
 
 export async function createApp(payments: Awaited<ReturnType<typeof createPayments>>, options: { execute?:typeof executeEndpoint; journal?:PaymentJournal; fetch?:typeof fetch } = {}) {
   const execute=options.execute || executeEndpoint;
@@ -66,13 +67,14 @@ export async function createApp(payments: Awaited<ReturnType<typeof createPaymen
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: [
-      'Content-Type', 'Accept', 'X-PAYMENT', 'PAYMENT-SIGNATURE', 'X-X402-Facilitator', 'X-Facilitator', 'MCP-Protocol-Version', 'Mcp-Session-Id', 'X-Action-Version', 'X-Blockchain-Ids'
+      'Content-Type', 'Accept', 'Authorization', 'X-API-Key', 'X-PAYMENT', 'PAYMENT-SIGNATURE', 'X-X402-Facilitator', 'X-Facilitator', 'MCP-Protocol-Version', 'Mcp-Session-Id', 'X-Action-Version', 'X-Blockchain-Ids'
     ],
     exposedHeaders: [
       'WWW-Authenticate', 'X-PAYMENT', 'PAYMENT-SIGNATURE', 'X-402-Version', 'Location',
       'PAYMENT-REQUIRED', 'PAYMENT-RESPONSE', 'EXTENSION-RESPONSES', 'Idempotency-Replayed',
       'Payment-Receipt', 'X-402-Payment-To', 'X-402-Amount', 'X-402-Amount-Units',
-      'X-402-Asset', 'X-402-Network', 'X-402-Chain-Id', 'X-Request-Id', 'X-Action-Version', 'X-Blockchain-Ids'
+      'X-402-Asset', 'X-402-Network', 'X-402-Chain-Id', 'X-Request-Id', 'X-Action-Version', 'X-Blockchain-Ids',
+      'X-Kurox-Auth', 'X-Kurox-Tier'
     ]
   }));
 
@@ -1035,11 +1037,29 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
 
 // Polymarket routes handled directly by CanaryGuard executor
 
+  app.use(async (req, res, next) => {
+    const rawXApiKey = Array.isArray(req.headers['x-api-key']) ? req.headers['x-api-key'][0] : req.headers['x-api-key'];
+    const kuroxAuth = await authenticateKuroxHeaders(req.headers.authorization, rawXApiKey, process.env.KUROX_SIGNING_SECRET);
+    if (kuroxAuth.present && !kuroxAuth.valid) {
+      res.status(kuroxAuth.status || 401).json({ error: 'invalid_api_key', charged: false, message: kuroxAuth.error });
+      return;
+    }
+    if (kuroxAuth.valid && kuroxAuth.payload) {
+      res.locals.kuroxBearerAuth = kuroxAuth.payload;
+      res.setHeader('X-Kurox-Auth', 'bearer-api-key');
+      res.setHeader('X-Kurox-Tier', kuroxAuth.payload.tier || 'api_key');
+    }
+    next();
+  });
+
   // Solana and PayAI-routed Base requests use the same real executor, with acquisition before settlement.
   app.use(solanaPaymentGate(payments.config.publicUrl,request,execute));
   app.use(basePayaiPaymentGate(payments.config.publicUrl,payments.config.payTo,request,execute));
 
   app.use((req, res, next) => {
+    if (res.locals.kuroxBearerAuth) {
+      return next();
+    }
     const rapidSecret = req.headers['x-rapidapi-proxy-secret'];
     const apiKey = req.headers['x-api-key'] || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
     const configuredSecret = process.env.RAPIDAPI_PROXY_SECRET;
