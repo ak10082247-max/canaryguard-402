@@ -4,7 +4,7 @@
   "name": "CanaryGuard-402",
   "title": "CanaryGuard 402 - Deterministic Prompt-Injection Firewall",
   "description": "Zero-latency deterministic prompt-injection firewall, secret redaction, and honeypot scrubber for autonomous AI agents and LLM tool chains.",
-  "version": "1.0.2",
+  "version": "1.3.0",
   "author": {
     "name": "AK Kurox",
     "email": "ak10082247@gmail.com",
@@ -45,10 +45,10 @@
           "quota_requests_per_month": 2500,
           "features": [
             "2,500 monthly sanitization & firewall checks",
-            "System prompt override & jailbreak neutralization",
+            "Unicode Tag smuggling, zero-width obfuscation & prompt injection decoding",
             "EVM private key & mnemonic regex redaction",
             "Tamper-evident canaryguard safety receipt",
-            "Standard community support"
+            "Unified sk_kurox_v1.* Bearer API key & x402 v2 billing"
           ]
         },
         {
