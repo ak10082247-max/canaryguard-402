@@ -492,6 +492,14 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
 
   app.get(['/.well-known/x402', '/.well-known/x402.json'], (_req, res) => res.json(x402Manifest));
 
+  app.get('/.well-known/x402-trust.txt', (_req, res) =>
+    res.type('text/plain').send('x402-trust-verification=v1:MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2N_3Jb0vfMBJWvh0u-3aCVoALmiFZ135i3FgSDB7n2Ib-v6V_5CNH83Mv9Q_1ZR5UwXWotHyUEZ_0m2kcQqgsQ\n')
+  );
+
+  app.get('/.well-known/nohumans-claim', (_req, res) =>
+    res.type('text/plain').send('ccca567604151b33ca4d9d4ee47edede0bf394a0a313b6ae')
+  );
+
   // OpenAPI Specification (Includes ONLY the 15 paid endpoints with zero non-paid noise)
   app.get(['/openapi.json', '/.well-known/openapi.json'], (_req, res) => {
     const openapiPaths: Record<string, any> = {};
