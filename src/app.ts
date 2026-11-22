@@ -37,8 +37,23 @@ import { mcpHandler } from './mcp.js';
 import { sendRevenueAlert } from './alerts.js';
 import { recordDeliveryMiddleware, getRecentDeliveries, getPaidDeliveries } from './delivery_recorder.js';
 import { authenticateKuroxHeaders } from './kurox_auth.js';
+import {
+  STRIPE_MIN_USD_CENTS,
+  buildCanaryMppChallengeDescription,
+  buildStripeChargeChallengeSync,
+  computeMppAmountCents,
+  extractPaymentSchemeHeader,
+  normalizeMppCredential,
+  parsePaymentCredentialToken,
+  resolveRequestRealm,
+  resolveStripeProfileId,
+  resolveStripeVerifyUrl,
+  settleViaAgentFuelRelay,
+  stripeMppGate,
+  verifyStripeChallengePreFlight,
+} from './stripe_mpp.js';
 
-export async function createApp(payments: Awaited<ReturnType<typeof createPayments>>, options: { execute?:typeof executeEndpoint; journal?:PaymentJournal; fetch?:typeof fetch } = {}) {
+export async function createApp(payments: Awaited<ReturnType<typeof createPayments>>, options: { execute?:typeof executeEndpoint; journal?:PaymentJournal; fetch?:typeof fetch; stripeMppVerifyUrl?: string } = {}) {
   const execute=options.execute || executeEndpoint;
   const request: typeof fetch = options.fetch || ((...args: Parameters<typeof fetch>) => fetch(...args));
   const app = express();
@@ -67,14 +82,14 @@ export async function createApp(payments: Awaited<ReturnType<typeof createPaymen
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: [
-      'Content-Type', 'Accept', 'Authorization', 'X-API-Key', 'X-PAYMENT', 'PAYMENT-SIGNATURE', 'X-X402-Facilitator', 'X-Facilitator', 'MCP-Protocol-Version', 'Mcp-Session-Id', 'X-Action-Version', 'X-Blockchain-Ids'
+      'Content-Type', 'Accept', 'Authorization', 'Payment-Authorization', 'X-API-Key', 'X-PAYMENT', 'PAYMENT-SIGNATURE', 'X-X402-Facilitator', 'X-Facilitator', 'MCP-Protocol-Version', 'Mcp-Session-Id', 'X-Action-Version', 'X-Blockchain-Ids'
     ],
     exposedHeaders: [
       'WWW-Authenticate', 'X-PAYMENT', 'PAYMENT-SIGNATURE', 'X-402-Version', 'Location',
       'PAYMENT-REQUIRED', 'PAYMENT-RESPONSE', 'EXTENSION-RESPONSES', 'Idempotency-Replayed',
       'Payment-Receipt', 'X-402-Payment-To', 'X-402-Amount', 'X-402-Amount-Units',
       'X-402-Asset', 'X-402-Network', 'X-402-Chain-Id', 'X-Request-Id', 'X-Action-Version', 'X-Blockchain-Ids',
-      'X-Kurox-Auth', 'X-Kurox-Tier'
+      'X-Kurox-Auth', 'X-Kurox-Tier', 'X-Kurox-Api-Key', 'X-Kurox-Api-Key-Expires'
     ]
   }));
 
@@ -164,20 +179,13 @@ export async function createApp(payments: Awaited<ReturnType<typeof createPaymen
         res.setHeader('X-402-Network', 'base');
         res.setHeader('X-402-Chain-Id', '8453');
 
-        const challengeId = randomUUID();
-        const reqPayload = {
-          amount: amountMicro,
-          chainId: 8453,
-          currency: ASSET,
-          decimals: 6,
-          recipient: payments.config.payTo,
-        };
-        const reqB64 = Buffer.from(JSON.stringify(reqPayload)).toString('base64url');
-        const expires = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-        res.setHeader(
-          'WWW-Authenticate',
-          `Payment id="${challengeId}", realm="canaryguard-402.onrender.com", method="evm", intent="charge", request="${reqB64}", expires="${expires}"`
-        );
+        const mppChallenge = buildStripeChargeChallengeSync({
+          realm: resolveRequestRealm(req, payments.config.publicUrl),
+          amountCents: computeMppAmountCents(amountMicro),
+          description: buildCanaryMppChallengeDescription(desc),
+          secretKey: process.env.KUROX_SIGNING_SECRET,
+        });
+        res.setHeader('WWW-Authenticate', mppChallenge.headerValue);
 
         const pr = res.getHeader('PAYMENT-REQUIRED');
         if (typeof pr === 'string') {
@@ -457,6 +465,15 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
     payment_recipient: payments.config.payTo,
     accepted_tokens: [ASSET],
     pricing: { amount: '10000', price: '0.010 USDC', asset: ASSET, network: NETWORK, chainId: 8453, payTo: payments.config.payTo },
+    mpp: {
+      method: 'stripe',
+      intent: 'charge',
+      networkId: resolveStripeProfileId(),
+      businessProfile: 'https://stripe.com/@kurox_x402',
+      paymentMethodTypes: ['card'],
+      minAmountCents: STRIPE_MIN_USD_CENTS,
+      unifiedPassEndpoint: 'https://agentfuel402.ak10082247.workers.dev/v1/mpp/pass',
+    },
     endpoints: ENDPOINT_SPECS.map(s => ({
       method: 'POST',
       url: payments.config.publicUrl + s.path,
@@ -515,6 +532,7 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
             content: {
               'application/json': {
                 schema: spec.inputSchema,
+                ...(spec.inputExample !== undefined ? { example: spec.inputExample } : {}),
               },
             },
           },
@@ -526,7 +544,7 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
                 }
               : { description: 'Request executed successfully' },
             '402': {
-              description: `Payment Required: ${spec.priceUsd} USDC on Base mainnet (EIP-155:8453)`,
+              description: `Payment Required: ${spec.priceUsd} USDC on Base/Solana OR $0.50 USD Stripe MPP (method=stripe, includes 7d Unified Kurox API Key)`,
             },
           },
           'x-payment-required': true,
@@ -1060,7 +1078,8 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
     next();
   });
 
-  // Solana and PayAI-routed Base requests use the same real executor, with acquisition before settlement.
+  // Stripe MPP, Solana, and PayAI-routed Base requests use the same real executor, with acquisition before settlement.
+  app.use(stripeMppGate(payments.config.publicUrl, request, execute, options.stripeMppVerifyUrl));
   app.use(solanaPaymentGate(payments.config.publicUrl,request,execute));
   app.use(basePayaiPaymentGate(payments.config.publicUrl,payments.config.payTo,request,execute));
 
@@ -1133,7 +1152,7 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
   // MCP Handler (mounted on both /mcp and root / for full scanner compatibility)
   const handler = await mcpHandler(payments.server, payments.config.publicUrl, payments.config.payTo,fetch,execute,options.journal);
 
-  const mcpJsonRpcInterceptor = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const mcpJsonRpcInterceptor = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     // Prevent 406 on streamable HTTP if Accept header is missing or wildcard
     if (!req.headers.accept || req.headers.accept === '*/*') {
       req.headers.accept = 'application/json';
@@ -1204,7 +1223,68 @@ LLMs-Txt: https://canaryguard-402.onrender.com/llms.txt
     if (method === 'tools/call') {
       const toolName = req.body.params?.name;
       const matched = ENDPOINT_SPECS.find(s => s.operationId === toolName || (toolName === 'canary_sanitize' && s.operationId === 'sanitizeContent'));
-      if (matched) return (handler as any)(req, res, next);
+      if (matched) {
+        const mppHttpHdr = !res.locals.kuroxBearerAuth ? extractPaymentSchemeHeader(req) : null;
+        const mppMetaCred = !res.locals.kuroxBearerAuth ? req.body.params?._meta?.['org.paymentauth/credential'] : null;
+        if (mppHttpHdr || mppMetaCred) {
+          const realm = resolveRequestRealm(req, payments.config.publicUrl);
+          const secretKey = process.env.KUROX_SIGNING_SECRET;
+          const minCents = computeMppAmountCents(matched.amountMicro);
+          try {
+            const cred = mppHttpHdr
+              ? parsePaymentCredentialToken(mppHttpHdr)
+              : (typeof mppMetaCred === 'string'
+                  ? parsePaymentCredentialToken(`Payment ${mppMetaCred}`)
+                  : normalizeMppCredential(mppMetaCred));
+            verifyStripeChallengePreFlight(cred, secretKey, [realm, 'canaryguard-402.onrender.com'], minCents);
+            const result = await execute(matched.path, req.body.params?.arguments || {});
+            const settled = await settleViaAgentFuelRelay({
+              service: 'canaryguard-402-mcp',
+              expectedRealm: realm,
+              credential: cred,
+              minAmountCents: minCents,
+              secretKey: secretKey!,
+              verifyUrl: options.stripeMppVerifyUrl || resolveStripeVerifyUrl(),
+              requestFn: request,
+            });
+            res.setHeader('Payment-Receipt', settled.receiptHeader);
+            res.setHeader('X-Kurox-Auth', 'stripe-mpp');
+            res.setHeader('X-Kurox-Tier', settled.tier || 'mpp_pass');
+            res.setHeader('X-Kurox-Api-Key', settled.apiKey);
+            res.setHeader('X-Kurox-Api-Key-Expires', settled.apiKeyExpiresAt);
+            return res.json({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                content: [{ type: 'text', text: JSON.stringify(result) }],
+                structuredContent: result,
+                _meta: {
+                  'org.paymentauth/receipt': settled.receipt,
+                  'kurox/api-key': { api_key: settled.apiKey, expires_at: settled.apiKeyExpiresAt, tier: settled.tier },
+                },
+              },
+            });
+          } catch (mppErr: any) {
+            const fresh = buildStripeChargeChallengeSync({
+              realm,
+              amountCents: minCents,
+              description: buildCanaryMppChallengeDescription(matched.description),
+              secretKey,
+            });
+            res.setHeader('WWW-Authenticate', fresh.headerValue);
+            return res.json({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                isError: true,
+                content: [{ type: 'text', text: JSON.stringify({ error: mppErr?.code || 'stripe_mpp_error', message: mppErr?.message || 'Stripe MPP error', charged: false }) }],
+                _meta: { 'org.paymentauth/payment-required': [fresh.challenge] },
+              },
+            });
+          }
+        }
+        return (handler as any)(req, res, next);
+      }
     }
 
     // Standard JSON-RPC 2.0 error response for unrecognized methods
